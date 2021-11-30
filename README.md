@@ -36,6 +36,6 @@ Bienvenu dans notre dépot Github de notre projet de programmation répartie en 
 
 ### Encadrant
 * Hinde Bouziane
-* dRodolphe Giroudeau
+* Rodolphe Giroudeau
 
 **[PDF sujet](https://github.com/virgil-rouquettecampredon/Projet_ProgrammationRepartie/blob/main/projet21-22.pdf)**
