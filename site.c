@@ -8,12 +8,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
-
-/*struct sockaddr_in server;
-server.sin_family = AF_INET;
-server.sin_addr.s_addr = INADDR_ANY;
-server.sin_port = htons(atoi(argv[1]));*/
+//#include "site.h"
 
 char** splitIp(char* ip){
     char** ip_array = (char**)malloc(4 * sizeof(char*));
@@ -25,7 +20,7 @@ char** splitIp(char* ip){
     return ip_array;
 }
 
-struct sockaddr_in* initAddrServer(const char* emplacementFichier){
+struct sockaddr_in* initAddrServer(const char* emplacementFichier, int* y){
     //load file
     FILE* fichier = fopen(emplacementFichier, "r");
     //return error if file doesn't exist
@@ -52,26 +47,49 @@ struct sockaddr_in* initAddrServer(const char* emplacementFichier){
         addrServer[i].sin_port = htons(atoi(ip_array[1]));
         i++;
     }
+    *y = i;
     return addrServer;
 }
 
+//remove one specified sockaddr_in from addrServer
+void removeAddrServer(struct sockaddr_in* addrServerOpponent, char** ip, int* y){
+    int i = 0;
+    while(((strcmp(inet_ntoa(addrServerOpponent[i].sin_addr), ip[0]) != 0)||(ntohs(addrServerOpponent[i].sin_port) != atoi(ip[1])))&& (i < *y)){
+        i++;
+    }
+    if(i < *y){
+        for(int j = i; j < *y - 1; j++){
+            addrServerOpponent[j] = addrServerOpponent[j + 1];
+        }
+        *y = *y - 1;
+    }
+
+}
 
 int main(int argc, const char * argv[]) {
 
     //test if there are 3 arguments
     if(argc != 3){
-        printf("Error: wrong number of arguments\n");
+        printf("Utilisation: addresseDuSite : %s EmplacementFichierDesAddressesDeTousLesSites : %s\n", argv[1], argv[2]);
         exit(1);
     }
 
+    //split argv[1] with splitIp
+    char** selfIp = splitIp(argv[1]);
+    printf("%s", selfIp[0]);
+    printf(":%s\n", selfIp[1]);
     struct sockaddr_in* addrServer;
 
-    addrServer = initAddrServer(argv[2]);
+    int nombreElement;
+    addrServer = initAddrServer(argv[2], &nombreElement);
 
-    printf("Adresse IP 0 : %s\n", inet_ntoa(addrServer[0].sin_addr));
-    printf("Adresse IP 1 : %s\n", inet_ntoa(addrServer[1].sin_addr));
-    printf("Port IP 0 : %d\n", ntohs(addrServer[0].sin_port));
-    printf("Port IP 1 : %d\n", ntohs(addrServer[1].sin_port));
+
+    removeAddrServer(addrServer, selfIp, &nombreElement);
+
+    //print all sockaddr_in from addrServer
+    for(int i = 0; i < nombreElement; i++){
+        printf("Adresse IP %d: %s:%d\n",i, inet_ntoa(addrServer[i].sin_addr),ntohs(addrServer[i].sin_port));
+    }
 
     return 0;
 }
