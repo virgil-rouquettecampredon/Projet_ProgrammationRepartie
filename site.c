@@ -7,6 +7,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 
 /*struct sockaddr_in server;
@@ -24,7 +25,7 @@ char** splitIp(char* ip){
     return ip_array;
 }
 
-struct sockaddr_in** initAddrServer(const char* emplacementFichier){
+struct sockaddr_in* initAddrServer(const char* emplacementFichier){
     //load file
     FILE* fichier = fopen(emplacementFichier, "r");
     //return error if file doesn't exist
@@ -32,21 +33,23 @@ struct sockaddr_in** initAddrServer(const char* emplacementFichier){
         printf("Error: file doesn't exist\n");
         exit(1);
     }
-    struct sockaddr_in** addrServer;
+    struct sockaddr_in* addrServer;
     char* ipTemp;
+    ssize_t nbLus = 0;
     int i = 0;
-    while ((getline(NULL, NULL, fichier)) != -1){
+    while ((getline(&ipTemp, &nbLus, fichier)) != -1) {
         i++;
     }
     addrServer = (struct sockaddr_in*)malloc(i * sizeof(struct sockaddr_in));
+    rewind(fichier);
+
     i = 0;
     int tailleSockAddr_in = sizeof(struct sockaddr_in);
-    while ((getline(&ipTemp, NULL, fichier)) != -1){
+    while ((getline(&ipTemp, &nbLus, fichier)) != -1){
         char** ip_array = splitIp(ipTemp);
-        addrServer[i] = malloc(tailleSockAddr_in);
-        addrServer[i]->sin_family = AF_INET;
-        addrServer[i]->sin_addr.s_addr = inet_addr(ip_array[0]);
-        addrServer[i]->sin_port = htons(atoi(ip_array[1]));
+        addrServer[i].sin_family = AF_INET;
+        addrServer[i].sin_addr.s_addr = inet_addr(ip_array[0]);
+        addrServer[i].sin_port = htons(atoi(ip_array[1]));
         i++;
     }
     return addrServer;
@@ -61,27 +64,14 @@ int main(int argc, const char * argv[]) {
         exit(1);
     }
 
-    struct sockaddr_in** addrServer;
-
-    char ip1[] = "192.168.1.1:8800";
-    char ip2[] = "192.168.168.1.2:2077";
-
-    //Split the ip into ip and port
-    char** ip1_array = splitIp(ip1);
-    char** ip2_array = splitIp(ip2);
-
-
-    printf("IP : %s",ip1_array[0]);
-    printf("\nPort : %s\n\n", ip1_array[1]);
-
-    printf("IP : %s",ip2_array[0]);
-    printf("\nPort : %s\n\n", ip2_array[1]);
+    struct sockaddr_in* addrServer;
 
     addrServer = initAddrServer(argv[2]);
 
-    printf("%d\n", addrServer[0]->sin_port);
-    printf("%d\n", addrServer[1]->sin_port);
-
+    printf("Adresse IP 0 : %s\n", inet_ntoa(addrServer[0].sin_addr));
+    printf("Adresse IP 1 : %s\n", inet_ntoa(addrServer[1].sin_addr));
+    printf("Port IP 0 : %d\n", ntohs(addrServer[0].sin_port));
+    printf("Port IP 1 : %d\n", ntohs(addrServer[1].sin_port));
 
     return 0;
 }
