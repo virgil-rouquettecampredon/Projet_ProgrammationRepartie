@@ -7,6 +7,36 @@
 #include <arpa/inet.h>
 //#include "site.h"
 
+//Sabri the sublime
+
+#define GAGNANT 1
+#define PERDANT 0
+#define PASSIF 200
+#define PARTICIPANT 201
+#define CAPTURE 202
+
+struct siteState {
+    struct sockaddr_in* pere;
+    int puissance;
+    int puissance_Pere;
+    int etat;
+    char* ip;
+    int port;
+    struct sockaddr_in* liste_IP;
+};
+
+struct siteState* initSiteState (char* ip, char* port, struct sockaddr_in* liste_IP) {
+    struct siteState* site;
+    site->pere = (void*)0;
+    site->puissance_Pere = 0;
+    site->etat = PARTICIPANT;
+    site->ip = ip;
+    site->port = atoi(port);
+    site->liste_IP = liste_IP;
+
+    return site;
+}
+
 char** splitIp(char* ip){
     char** ip_array = (char**)malloc(4 * sizeof(char*));
     const char* delimiter = ":";
