@@ -1,6 +1,3 @@
-//
-// Created by vivap on 26/11/2021.
-//
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,7 +63,7 @@ void removeAddrServer(struct sockaddr_in* addrServerOpponent, char** ip, int* y)
 
 }
 
-int main(int argc, const char * argv[]) {
+int main(int argc, const char * argv[]){
 
     //test if there are 3 arguments
     if(argc != 3){
