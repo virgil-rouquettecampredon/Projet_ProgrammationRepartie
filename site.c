@@ -118,5 +118,15 @@ int main(int argc, const char * argv[]){
         printf("Adresse IP %d: %s:%d\n",i, inet_ntoa(addrServer[i].sin_addr),ntohs(addrServer[i].sin_port));
     }
 
+    printf("Initialisation self state\n");
+
+    struct siteState* selfState = initSiteState(selfIp[0], selfIp[1], addrServer);
+    printf("%s", selfState->ip);
+    printf(":%d\n", selfState->port);
+    printf("%d\n", selfState->puissance_Pere);
+    printf("Is father null ? %d\n", selfState->pere==(void*)0);
+
+
+
     return 0;
 }
