@@ -14,7 +14,7 @@
 
 #define MAX_BUFFER_SIZE 16000 // taille du buffer qui me permet de récupérer le contenu du fichier à recevoir bloc par bloc. Vous pouvez changer cette valeur.
 
-int sendTCP(int socket, const char * buffer, size_t length, unsigned int *nbBytesSent, unsigned int * nbCallSend){
+int sendTCP(int socket, const char * buffer, size_t length){
 
     ssize_t sent;
 
@@ -27,9 +27,6 @@ int sendTCP(int socket, const char * buffer, size_t length, unsigned int *nbByte
 
         buffer += sent;
         length -= sent;
-
-        (*nbBytesSent) += sent;
-        (*nbCallSend)++;
     }
     return 1;
 }
@@ -56,7 +53,7 @@ int recvTCP(int socket, char *buffer, size_t length, unsigned int *nbBytesReceve
 int main(int argc, char *argv[])
 {
 
-    if (argc<2){
+    if (argc<3){
         printf("Utilisation : %s numero_port nombreDeSite\n", argv[0]);
         exit(1);
     }
@@ -121,6 +118,7 @@ int main(int argc, char *argv[])
         strcat_s(allClient, lgAdr, "\n");
     }
 
+
     //send to all clients in list_client the number of clients and list_client
     for (int i = 0; i < nombreDeSite; ++i) {
         int conn = connect(ds, (struct sockaddr *)&liste_client[i], lgAdr);
@@ -128,7 +126,22 @@ int main(int argc, char *argv[])
             perror("Serveur : erreur connect");
             exit(1);
         }
-        snd = sendTCP(ds, allClient, sizeof(allClient), &nbTotalOctetsEnvoyes, &nbAppelSend);
+        snd = sendTCP(ds, itoa(nombreDeSite), sizeof(itoa(nombreDeSite)));
+        if(snd<0){
+            perror("Client : erreur lors du send:");
+            free(filepath);
+            close(ds);
+            exit(1);
+        }
+
+        if(snd==0){
+            printf("Client : serveur deconnecte\n");
+            free(filepath);
+            close(ds);
+            exit(1);
+        }
+
+        snd = sendTCP(ds, allClient, sizeof(allClient));
         if(snd<0){
             perror("Client : erreur lors du send:");
             free(filepath);
