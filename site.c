@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +36,7 @@ struct siteState* initSiteState (char* ip, char* port, struct sockaddr_in* liste
     return site;
 }
 
-char** splitIp(char* ip){
+/*char** splitIp(char* ip){
     char** ip_array = (char**)malloc(4 * sizeof(char*));
     const char* delimiter = ":";
     strtok(ip, delimiter);
@@ -46,8 +45,22 @@ char** splitIp(char* ip){
 
     return ip_array;
 }
+*/
+char** split(char s[],char* delimiteur,int n){
 
-struct sockaddr_in* initAddrServer(const char* emplacementFichier, int* y){
+int i=0;
+char* p = strtok (s, delimiteur);
+char** tab = (char**)malloc(n * sizeof(char*));
+   while (p != NULL)
+  {
+        tab[i]=p;
+        p = strtok (NULL, delimiteur);
+        i++;
+  }
+return tab;
+}
+
+/*struct sockaddr_in* initAddrServer(const char* emplacementFichier, int* y){
     //load file
     FILE* fichier = fopen(emplacementFichier, "r");
     //return error if file doesn't exist
@@ -76,6 +89,30 @@ struct sockaddr_in* initAddrServer(const char* emplacementFichier, int* y){
     }
     *y = i;
     return addrServer;
+}*/
+//fonction qui initialise le tableau des adversiars
+struct sockaddr_in* initAddrServer(char* str, int n){
+
+    struct sockaddr_in* addrServer = (struct sockaddr_in*)malloc(n * sizeof(struct sockaddr_in));
+    char* delimiterLigne = "#";
+    char* delimiterIp = ":";
+    //on decoupe les lignes avec le delimiterLigne
+    char** lines = split(str,delimiterLigne,n);
+    char** ipPort;
+    int i =0;
+    while(i<n){
+    //on parcourt les lignes et on split sur le delimiterIp pour avooir l'ip et le port de l'adversaire représenté dans la ligne parcourue
+        ipPort = split(lines[i],delimiterIp,2);
+        //printf(" %s  ", lines[i]);
+        //printf(" %s  ", ipPort[0]);
+        //printf(" %s  \n", ipPort[1]);
+        addrServer[i].sin_family = AF_INET;
+        addrServer[i].sin_addr.s_addr = inet_addr(ipPort[0]);
+        addrServer[i].sin_port = htons(atoi(ipPort[1]));
+        i++;
+        }
+
+    return addrServer;
 }
 
 //remove one specified sockaddr_in from addrServer
@@ -96,11 +133,66 @@ void removeAddrServer(struct sockaddr_in* addrServerOpponent, char** ip, int* y)
 int main(int argc, const char * argv[]){
 
     //test if there are 3 arguments
-    if(argc != 3){
-        printf("Utilisation: addresseDuSite : %s EmplacementFichierDesAddressesDeTousLesSites : %s\n", argv[1], argv[2]);
+    if(argc != 4){
+        printf("Utilisation: %s addresse_IP_du_erveur_central  numero_de_port_du_serveur_central le_numero_de_port_du_site\n",argv[0]);
         exit(1);
     }
+    //Connexion au serveur central
+    int ds = socket(PF_INET, SOCK_STREAM, 0);
+        if (ds < 0) {
+            perror("Client : erreur creation socket");
 
+        }
+
+        struct sockaddr_in adrServ;
+        adrServ.sin_addr.s_addr = inet_addr(argv[1]);
+        adrServ.sin_family = AF_INET;
+        adrServ.sin_port = htons( (short) atoi (argv[2]));
+
+        int lgAdr = sizeof(struct sockaddr_in);
+
+        int conn = connect(ds, (struct sockaddr *)&adrServ, lgAdr);
+        if (conn < 0){
+            perror("Client : erreur connect");
+            close(ds);
+            exit(1);
+        }
+        //reception du tableau avec les ip des sites
+        char nbSites;
+        int rcv = recv (ds,&nbSites,sizeof(int),0) ;
+          /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
+           if (rcv<0){
+              perror ( "Client: probleme recv :");
+              close(ds);
+              exit (1);
+           }
+           if (rcv==0){
+              perror ( "Client: serveur out of reach :");
+              close(ds);
+              exit (1);
+              }
+    //Reception des ips et ports des autres sites sous forme d'un chaine de char avec delimiteurs
+         char* allClient;
+         allClient = malloc(lgAdr*nbSites);
+         rcv = recv (ds,&allClient,sizeof(allClient),0) ;
+         /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
+          if (rcv<0){
+            perror ( "Client: probleme recv :");
+            close(ds);
+            exit (1);
+                      }
+            if (rcv==0){
+            perror ( "Client: serveur out of reach :");
+            close(ds);
+            exit (1);
+                       }
+    // création d'un tableau de socketAdversair
+    struct sockaddr_in* addrServer = (struct sockaddr_in*)malloc(atoi(nbSites) * sizeof(struct sockaddr_in));
+    //initialisation du tableau des adversaires
+    addrServer = initAddrServer(allClient,atoi(nbSites));
+
+
+/*
     //split argv[1] with splitIp
     char** selfIp = splitIp(argv[1]);
     printf("%s", selfIp[0]);
@@ -125,6 +217,7 @@ int main(int argc, const char * argv[]){
     printf(":%d\n", selfState->port);
     printf("%d\n", selfState->puissance_Pere);
     printf("Is father null ? %d\n", selfState->pere==(void*)0);
+    */
 
 
 

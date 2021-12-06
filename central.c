@@ -109,13 +109,17 @@ int main(int argc, char *argv[])
     }
     int lgAdr = sizeof(struct sockaddr_in);
 
+    //convert short unsigned int to string
+    char port[6];
+
     char* allClient;
     allClient = malloc(lgAdr*nombreDeSite);
     for (int i = 0; i < nombreDeSite; ++i) {
-        strcat_s(allClient, lgAdr, inet_ntoa(liste_client[i].sin_addr));
-        strcat_s(allClient, lgAdr, ":");
-        strcat_s(allClient, lgAdr, ntohs(addrServer[i].sin_port));
-        strcat_s(allClient, lgAdr, "\n");
+        strcat(allClient, inet_ntoa(liste_client[i].sin_addr));
+        strcat(allClient, ":");
+        sprintf(port, "%d", ntohs(liste_client[0].sin_port));
+        strcat(allClient, port);
+        strcat(allClient, "\n");
     }
 
 
@@ -126,17 +130,16 @@ int main(int argc, char *argv[])
             perror("Serveur : erreur connect");
             exit(1);
         }
-        snd = sendTCP(ds, itoa(nombreDeSite), sizeof(itoa(nombreDeSite)));
+
+        int snd = sendTCP(ds,(char*) &nombreDeSite, sizeof(int));
         if(snd<0){
             perror("Client : erreur lors du send:");
-            free(filepath);
             close(ds);
             exit(1);
         }
 
         if(snd==0){
             printf("Client : serveur deconnecte\n");
-            free(filepath);
             close(ds);
             exit(1);
         }
@@ -144,14 +147,12 @@ int main(int argc, char *argv[])
         snd = sendTCP(ds, allClient, sizeof(allClient));
         if(snd<0){
             perror("Client : erreur lors du send:");
-            free(filepath);
             close(ds);
             exit(1);
         }
 
         if(snd==0){
             printf("Client : serveur deconnecte\n");
-            free(filepath);
             close(ds);
             exit(1);
         }
