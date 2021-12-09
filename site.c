@@ -5,6 +5,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include "calcul.h"
+#include <netinet/in.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
 //#include "site.h"
 
 //Sabri the sublime
@@ -175,6 +179,7 @@ int main(int argc, const char *argv[]) {
     int ds = socket(PF_INET, SOCK_STREAM, 0);
     if (ds < 0) {
         perror("Client : erreur creation socket");
+    }
 
     }
 
@@ -195,9 +200,9 @@ int main(int argc, const char *argv[]) {
     printf("Etat ds 1 : %d\n", ds);
 
     //reception du tableau avec les ip des sites
-    char nbSites;
+    int nbSites;
     printf("NbSItes avant rcv : %d\n", nbSites);
-    int rcv = recv(ds, &nbSites, sizeof(int), 0);
+    int rcv = recvTCP(ds, &nbSites, sizeof(int));
     printf("NbSItes après rcv : %d\n", nbSites);
     /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
     if (rcv < 0) {
@@ -211,26 +216,17 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    conn = connect(ds, (struct sockaddr *) &adrServ, lgAdr);
-    if (conn < 0) {
-        perror("Client : erreur connect");
-        close(ds);
-        exit(1);
-    }
-
     printf("Etat ds 2 : %d\n", ds);
-
-    calcul(2);
 
     //Reception des ips et ports des autres sites sous forme d'une chaine de char avec delimit
     //Taille message ip/port
-    int tailleSite = 22 * nbSites - 1;
-    char allClient[tailleSite];
+    int tailleSite = 22 * nbSites;
+    char* allClient[tailleSite];
 
     printf("Avant : %s\n", allClient);
     printf("Valeur rcv avant second rcv : %d\n", rcv);
 
-    rcv = recv(ds, &allClient, tailleSite, 0);
+    rcv = recvTCP(ds, allClient, tailleSite);
 
     printf("Valeur rcv après second rcv : %d\n", rcv);
     printf("Après : %s\n", allClient);
@@ -277,7 +273,8 @@ int main(int argc, const char *argv[]) {
     printf("%d\n", selfState->puissance_Pere);
     printf("Is father null ? %d\n", selfState->pere==(void*)0);
     */
-    calcul(5);
+
+    close(ds);
 
 
     return 0;
