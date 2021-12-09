@@ -15,6 +15,13 @@
 
 #define MAX_BUFFER_SIZE 16000 // taille du buffer qui me permet de récupérer le contenu du fichier à recevoir bloc par bloc. Vous pouvez changer cette valeur.
 
+void fermerSocket(int* listeSocket, int nombreSocket){
+    for (int i = 0; i < nombreSocket; ++i) {
+        close(listeSocket[i]);
+    }
+}
+
+
 int sendTCP(int socket, const char * buffer, size_t length){
 
     ssize_t sent;
