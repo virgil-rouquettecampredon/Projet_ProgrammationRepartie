@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <sys/select.h>
+#include "calcul.h"
 
 //84.103.70.123 33333
 
@@ -31,7 +32,7 @@ int sendTCP(int socket, const char * buffer, size_t length){
     return 1;
 }
 
-int recvTCP(int socket, char *buffer, size_t length, unsigned int *nbBytesReceved, unsigned int * nbCallRecv){
+int recvTCP(int socket, char *buffer, size_t length){
     ssize_t received;
 
     while (length > 0){
@@ -43,9 +44,6 @@ int recvTCP(int socket, char *buffer, size_t length, unsigned int *nbBytesReceve
 
         buffer += received;
         length -= received;
-
-        (*nbBytesReceved) += received;
-        (*nbCallRecv)++;
     }
     return 1;
 }
@@ -84,10 +82,18 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    struct sockaddr_in liste_client[nombreDeSite];
+    int liste_client[nombreDeSite];
+    struct sockaddr_in clients[nombreDeSite];
 
     /* boucle pour le traitement itératif des clients */
-    while(nombreDeSite != 0){
+    int i = nombreDeSite;
+
+
+    //xxx.xxx.xxx.xxx:yyyyy$ taille ip = 21 char
+    int sizeClient = 22*nombreDeSite-1;
+    char allClient[sizeClient];
+
+    while(i != 0){
         printf("Serveur : j'attends la demande d'un client (accept) \n");
 
         struct sockaddr_in adc;
@@ -101,64 +107,68 @@ int main(int argc, char *argv[])
 
         printf("Serveur : le client %s:%d est connecté\n", inet_ntoa(adc.sin_addr) , ntohs(adc.sin_port));
 
-        liste_client[nombreDeSite-1] = adc;
 
-        nombreDeSite--;
-        //je passe au client suivant.
-        close(dsc);
-    }
-    int lgAdr = sizeof(struct sockaddr_in);
+        liste_client[i-1] = dsc;
 
-    //convert short unsigned int to string
-    char port[6];
+        //convert short unsigned int to string
+        char port[6];
 
-    char* allClient;
-    allClient = malloc(lgAdr*nombreDeSite);
-    for (int i = 0; i < nombreDeSite; ++i) {
-        strcat(allClient, inet_ntoa(liste_client[i].sin_addr));
+        strcat(allClient, inet_ntoa(adc.sin_addr));
         strcat(allClient, ":");
-        sprintf(port, "%d", ntohs(liste_client[0].sin_port));
+        sprintf(port, "%d", ntohs(adc.sin_port));
         strcat(allClient, port);
-        strcat(allClient, "\n");
+        strcat(allClient, "$");
+
+        i--;
+        //je passe au client suivant.
     }
+
 
 
     //send to all clients in list_client the number of clients and list_client
     for (int i = 0; i < nombreDeSite; ++i) {
-        int conn = connect(ds, (struct sockaddr *)&liste_client[i], lgAdr);
-        if (conn < 0){
-            perror("Serveur : erreur connect");
+        int dsic = liste_client[i];
+        printf("Etat socket client %d avant premier send : %d\n", i, liste_client[i]);
+        int snd = send(liste_client[i],(char*) &nombreDeSite, sizeof(int), 0);
+        if(snd<0){
+            perror("Client : erreur lors du send:");
+            //TODO : FAUDRA FERMER TOUT LES SOCKETS
+            close(ds);
+            close(liste_client[i]);
             exit(1);
         }
 
-        int snd = sendTCP(ds,(char*) &nombreDeSite, sizeof(int));
+        if(snd==0){
+            printf("Client : serveur deconnecte\n");
+            close(liste_client[i]);
+            close(ds);
+            exit(1);
+        }
+
+        printf("Etat socket client %d après premier send : %d\n", i, liste_client[i]);
+
+        printf("Taille du buffer : %d\n", sizeClient);
+        printf("Contenu du buffer : %s\n", allClient);
+        snd = send(liste_client[i], allClient, sizeClient, 0);
+        printf("Etat socket client %d avant second send : %d\n", i, liste_client[i]);
         if(snd<0){
             perror("Client : erreur lors du send:");
             close(ds);
+            close(liste_client[i]);
             exit(1);
         }
 
         if(snd==0){
             printf("Client : serveur deconnecte\n");
             close(ds);
+            close(liste_client[i]);
             exit(1);
         }
-
-        snd = sendTCP(ds, allClient, sizeof(allClient));
-        if(snd<0){
-            perror("Client : erreur lors du send:");
-            close(ds);
-            exit(1);
-        }
-
-        if(snd==0){
-            printf("Client : serveur deconnecte\n");
-            close(ds);
-            exit(1);
-        }
+        //close(liste_client[i]);
+        calcul(5);
 
     }
 
-    close (ds); // atteignable si on sort de la boucle infinie.
+    //close (ds); // atteignable si on sort de la boucle infinie.
     printf("Serveur : je termine\n");
 }

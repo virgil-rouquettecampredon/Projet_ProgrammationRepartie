@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include "calcul.h"
 //#include "site.h"
 
 //Sabri the sublime
@@ -127,7 +128,39 @@ void removeAddrServer(struct sockaddr_in* addrServerOpponent, char** ip, int* y)
         }
         *y = *y - 1;
     }
+}
 
+int sendTCP(int socket, const char *buffer, size_t length) {
+
+    ssize_t sent;
+
+    while (length > 0) {
+        sent = send(socket, buffer, length, 0);
+
+        if (sent <= 0) {
+            return sent;
+        }
+
+        buffer += sent;
+        length -= sent;
+    }
+    return 1;
+}
+
+int recvTCP(int socket, char *buffer, size_t length) {
+    ssize_t received;
+
+    while (length > 0) {
+        received = recv(socket, buffer, length, 0);
+
+        if (received <= 0) {
+            return received;
+        }
+
+        buffer += received;
+        length -= received;
+    }
+    return 1;
 }
 
 int main(int argc, const char * argv[]){
@@ -151,45 +184,70 @@ int main(int argc, const char * argv[]){
 
         int lgAdr = sizeof(struct sockaddr_in);
 
-        int conn = connect(ds, (struct sockaddr *)&adrServ, lgAdr);
-        if (conn < 0){
-            perror("Client : erreur connect");
-            close(ds);
-            exit(1);
-        }
-        //reception du tableau avec les ip des sites
-        char nbSites;
-        int rcv = recv (ds,&nbSites,sizeof(int),0) ;
-          /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
-           if (rcv<0){
-              perror ( "Client: probleme recv :");
-              close(ds);
-              exit (1);
-           }
-           if (rcv==0){
-              perror ( "Client: serveur out of reach :");
-              close(ds);
-              exit (1);
-              }
-    //Reception des ips et ports des autres sites sous forme d'un chaine de char avec delimiteurs
-         char* allClient;
-         allClient = malloc(lgAdr*nbSites);
-         rcv = recv (ds,&allClient,sizeof(allClient),0) ;
-         /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
-          if (rcv<0){
-            perror ( "Client: probleme recv :");
-            close(ds);
-            exit (1);
-                      }
-            if (rcv==0){
-            perror ( "Client: serveur out of reach :");
-            close(ds);
-            exit (1);
-                       }
+    int conn = connect(ds, (struct sockaddr *) &adrServ, lgAdr);
+    if (conn < 0) {
+        perror("Client : erreur connect");
+        close(ds);
+        exit(1);
+    }
+
+    printf("Etat ds 1 : %d\n", ds);
+
+    //reception du tableau avec les ip des sites
+    char nbSites;
+    printf("NbSItes avant rcv : %d\n", nbSites);
+    int rcv = recv(ds, &nbSites, sizeof(int), 0);
+    printf("NbSItes après rcv : %d\n", nbSites);
+    /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
+    if (rcv < 0) {
+        perror("Client: probleme recv :");
+        close(ds);
+        exit(1);
+    }
+    if (rcv == 0) {
+        perror("Client: serveur out of reach :");
+        close(ds);
+        exit(1);
+    }
+
+    conn = connect(ds, (struct sockaddr *) &adrServ, lgAdr);
+    if (conn < 0) {
+        perror("Client : erreur connect");
+        close(ds);
+        exit(1);
+    }
+
+    printf("Etat ds 2 : %d\n", ds);
+
+    calcul(2);
+
+    //Reception des ips et ports des autres sites sous forme d'une chaine de char avec delimit
+    //Taille message ip/port
+    int tailleSite = 22 * nbSites - 1;
+    char allClient[tailleSite];
+
+    printf("Avant : %s\n", allClient);
+    printf("Valeur rcv avant second rcv : %d\n", rcv);
+
+    rcv = recv(ds, &allClient, tailleSite, 0);
+
+    printf("Valeur rcv après second rcv : %d\n", rcv);
+    printf("Après : %s\n", allClient);
+
+    if (rcv < 0) {
+        perror("Client: probleme recv :");
+        close(ds);
+        exit(1);
+    }
+    if (rcv == 0) {
+        perror("Client: serveur out of reach :");
+        close(ds);
+        exit(1);
+    }
     // création d'un tableau de socketAdversair
-    struct sockaddr_in* addrServer = (struct sockaddr_in*)malloc(atoi(nbSites) * sizeof(struct sockaddr_in));
+    //struct sockaddr_in* addrServer = (struct sockaddr_in*)malloc(atoi(nbSites) * sizeof(struct sockaddr_in));
     //initialisation du tableau des adversaires
-    addrServer = initAddrServer(allClient,atoi(nbSites));
+    //addrServer = initAddrServer(allClient,atoi(nbSites));
 
 
 /*
@@ -218,7 +276,7 @@ int main(int argc, const char * argv[]){
     printf("%d\n", selfState->puissance_Pere);
     printf("Is father null ? %d\n", selfState->pere==(void*)0);
     */
-
+    calcul(5);
 
 
 
