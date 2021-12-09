@@ -132,11 +132,9 @@ int main(int argc, char *argv[]) {
 
     //send to all clients in list_client the number of clients and list_client
     for (int i = 0; i < nombreDeSite; ++i) {
-        printf("Etat socket client %d avant premier send : %d\n", i, liste_client[i]);
         int snd = sendTCP(liste_client[i], &nombreDeSite, sizeof(int));
         if (snd < 0) {
             perror("Client : erreur lors du send:");
-            //TODO : FAUDRA FERMER TOUT LES SOCKETS
             fermerSocket(liste_client, nombreDeSite);
             close(ds);
             exit(1);
@@ -148,30 +146,24 @@ int main(int argc, char *argv[]) {
             close(ds);
             exit(1);
         }
-
-        printf("Etat socket client %d après premier send : %d\n", i, liste_client[i]);
-
-        printf("Taille du buffer : %d\n", sizeClient);
-        printf("Contenu du buffer : %s\n", allClient);
 
         snd = sendTCP(liste_client[i], (char *) allClient, sizeClient);
-        printf("Etat socket client %d avant second send : %d\n", i, liste_client[i]);
         if (snd < 0) {
             perror("Client : erreur lors du send:");
-            close(ds);
             fermerSocket(liste_client, nombreDeSite);
+            close(ds);
             exit(1);
         }
 
         if (snd == 0) {
             printf("Client : serveur deconnecte\n");
-            close(ds);
             fermerSocket(liste_client, nombreDeSite);
+            close(ds);
             exit(1);
         }
         close(liste_client[i]);
     }
 
-    close(ds); // atteignable si on sort de la boucle infinie.
+    close(ds); // atteignable si on sort de la boucle
     printf("Serveur : je termine\n");
 }

@@ -96,9 +96,8 @@ char **split(char s[], char *delimiteur, int n) {
 }*/
 //fonction qui initialise le tableau des adversiars
 struct sockaddr_in *initAddrServer(char *str, int n) {
-
     struct sockaddr_in *addrServer = (struct sockaddr_in *) malloc(n * sizeof(struct sockaddr_in));
-    char *delimiterLigne = "#";
+    char *delimiterLigne = "$";
     char *delimiterIp = ":";
     //on decoupe les lignes avec le delimiterLigne
     char **lines = split(str, delimiterLigne, n);
@@ -195,13 +194,11 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    printf("Etat ds 1 : %d\n", ds);
+    printf("Attente du nombre de sites...\n");
 
-    //reception du tableau avec les ip des sites
+    //Réception nbSites
     int nbSites;
-    printf("NbSItes avant rcv : %d\n", nbSites);
     int rcv = recvTCP(ds, &nbSites, sizeof(int));
-    printf("NbSItes après rcv : %d\n", nbSites);
     /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
     if (rcv < 0) {
         perror("Client: probleme recv :");
@@ -213,22 +210,15 @@ int main(int argc, const char *argv[]) {
         close(ds);
         exit(1);
     }
-
-    printf("Etat ds 2 : %d\n", ds);
+    printf("Nombre de sites : %d\n", nbSites);
+    printf("Attente de l'identité des autres sites...\n");
 
     //Reception des ips et ports des autres sites sous forme d'une chaine de char avec delimit
     //Taille message ip/port
     int tailleSite = 22 * nbSites;
-    char* allClient[tailleSite];
-
-    printf("Avant : %s\n", allClient);
-    printf("Valeur rcv avant second rcv : %d\n", rcv);
+    char allClient[tailleSite];
 
     rcv = recvTCP(ds, allClient, tailleSite);
-
-    printf("Valeur rcv après second rcv : %d\n", rcv);
-    printf("Après : %s\n", allClient);
-
     if (rcv < 0) {
         perror("Client: probleme recv :");
         close(ds);
@@ -239,38 +229,38 @@ int main(int argc, const char *argv[]) {
         close(ds);
         exit(1);
     }
-    // création d'un tableau de socketAdversair
-    //struct sockaddr_in* addrServer = (struct sockaddr_in*)malloc(atoi(nbSites) * sizeof(struct sockaddr_in));
-    //initialisation du tableau des adversaires
-    //addrServer = initAddrServer(allClient,atoi(nbSites));
 
+    printf("Liste des adversaires : %s\n", allClient);
 
-/*
-    //split argv[1] with splitIp
-    char** selfIp = splitIp(argv[1]);
-    printf("%s", selfIp[0]);
-    printf(":%s\n", selfIp[1]);
-    struct sockaddr_in* addrServer;
+    // Création d'un tableau de socketAdversaire
+    struct sockaddr_in* addrServer = (struct sockaddr_in*) malloc(nbSites * sizeof(struct sockaddr_in));
+    // Initialisation du tableau des adversaires
+    addrServer = initAddrServer(allClient, nbSites);
 
-    int nombreElement;
-    addrServer = initAddrServer(argv[2], &nombreElement);
+//    //split argv[1] with splitIp
+//    char** selfIp = splitIp(argv[1]);
+//    printf("Mon IP : %s", selfIp[0]);
+//    printf(":%s\n", selfIp[1]);
+//
+//    int nombreElement;
+//    addrServer = initAddrServer(argv[2], &nombreElement);
+//
+//
+//    removeAddrServer(addrServer, selfIp, &nombreElement);
+//
+//    //print all sockaddr_in from addrServer
+//    for(int i = 0; i < nombreElement; i++){
+//        printf("Adresse IP %d: %s:%d\n",i, inet_ntoa(addrServer[i].sin_addr),ntohs(addrServer[i].sin_port));
+//    }
+//
+//    printf("Initialisation self state\n");
+//
+//    struct siteState* selfState = initSiteState(selfIp[0], selfIp[1], addrServer);
+//    printf("%s", selfState->ip);
+//    printf(":%d\n", selfState->port);
+//    printf("%d\n", selfState->puissance_Pere);
+//    printf("Is father null ? %d\n", selfState->pere==(void*)0);
 
-
-    removeAddrServer(addrServer, selfIp, &nombreElement);
-
-    //print all sockaddr_in from addrServer
-    for(int i = 0; i < nombreElement; i++){
-        printf("Adresse IP %d: %s:%d\n",i, inet_ntoa(addrServer[i].sin_addr),ntohs(addrServer[i].sin_port));
-    }
-
-    printf("Initialisation self state\n");
-
-    struct siteState* selfState = initSiteState(selfIp[0], selfIp[1], addrServer);
-    printf("%s", selfState->ip);
-    printf(":%d\n", selfState->port);
-    printf("%d\n", selfState->puissance_Pere);
-    printf("Is father null ? %d\n", selfState->pere==(void*)0);
-    */
 
     close(ds);
 
