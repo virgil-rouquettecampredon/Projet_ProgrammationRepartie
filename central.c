@@ -69,6 +69,9 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    int option = 1;
+    setsockopt(ds, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+
     struct sockaddr_in server;
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
@@ -164,6 +167,13 @@ int main(int argc, char *argv[]) {
         close(liste_client[i]);
     }
 
-    close(ds); // atteignable si on sort de la boucle
+    shutdown(ds, SHUT_RDWR);
+//    int len=MAX_BUFFER_SIZE;
+//    char buffer[MAX_BUFFER_SIZE];
+//    while(len!=0) {
+//        len = read(ds, buffer, MAX_BUFFER_SIZE);
+//        printf("%s\n", buffer);
+//    }
+    printf("Close return value : %d\n", close(ds));
     printf("Serveur : je termine\n");
 }

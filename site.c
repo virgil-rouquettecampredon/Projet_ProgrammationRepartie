@@ -49,8 +49,8 @@ struct siteState *initSiteState(char *ip, char *port, struct sockaddr_in *liste_
     ip_array[1] = strtok(NULL, delimiter);
 
     return ip_array;
-}
-*/
+}*/
+
 char **split(char s[], char *delimiteur, int n) {
 
     int i = 0;
@@ -166,11 +166,72 @@ int recvTCP(int socket, char *buffer, size_t length) {
     return 1;
 }
 
+//Return a list of opened socket to all the opponents
+int* connectToOpponent(struct sockaddr_in *addrServer, int position, int numberOpponents) {
+    printf("Connecting to opponents...\n");
+    int dsOpponents[numberOpponents-1];
+    int beginningPos = position;
+    int lgAdr = sizeof(struct sockaddr_in);
+    if(position!=0) {
+        int ds = socket(PF_INET, SOCK_STREAM, 0);
+        if (ds < 0) {
+            perror("Client : erreur creation socket");
+        }
+
+        if (bind(ds, (struct sockaddr *) &addrServer[position], sizeof(struct sockaddr)) < 0) {
+            perror("Serveur : erreur bind");
+            close(ds);
+            exit(1);
+        }
+
+        int ecoute = listen(ds, numberOpponents-position-1);
+        if (ecoute < 0) {
+            perror("Serveur : erreur ecoute");
+            close(ds);
+            exit(1);
+        }
+
+        while(position!=0) {
+            printf("Serveur : j'attends la demande d'un client (accept) \n");
+
+            struct sockaddr_in adc;
+            socklen_t lgc = sizeof(struct sockaddr_in);
+
+            int dsc = accept(ds, (struct sockaddr *) &adc, &lgc);
+            if (dsc < 0) {
+                perror("Serveur : erreur accept");
+                exit(1);
+            }
+
+            printf("Serveur : le client %s:%d est connecté\n", inet_ntoa(adc.sin_addr), ntohs(adc.sin_port));
+            position--;
+        }
+    }
+
+    int dsOpponent;
+
+    for(int i=beginningPos+1; i<numberOpponents; i++) {
+        printf("Je me connecte à mes opposants\n");
+        //Connexion au serveur central
+        dsOpponent = socket(PF_INET, SOCK_STREAM, 0);
+        if (dsOpponent < 0) {
+            perror("Client : erreur creation socket");
+        }
+        int conn = connect(dsOpponent, (struct sockaddr *) &addrServer[i], lgAdr);
+        if (conn < 0) {
+            perror("Client : erreur connect");
+            close(dsOpponent);
+            exit(1);
+        }
+        dsOpponents[i-1] = dsOpponent;
+    }
+}
+
 int main(int argc, const char *argv[]) {
 
-    //test if there are 3 arguments
-    if (argc != 4) {
-        printf("Utilisation: %s addresse_IP_du_erveur_central  numero_de_port_du_serveur_central le_numero_de_port_du_site\n",
+    //test if there are 2 arguments
+    if (argc != 3) {
+        printf("Utilisation: %s addresse_IP_du_erveur_central  numero_de_port_du_serveur_central\n",
                argv[0]);
         exit(1);
     }
@@ -237,10 +298,36 @@ int main(int argc, const char *argv[]) {
     // Initialisation du tableau des adversaires
     addrServer = initAddrServer(allClient, nbSites);
 
-//    //split argv[1] with splitIp
-//    char** selfIp = splitIp(argv[1]);
-//    printf("Mon IP : %s", selfIp[0]);
-//    printf(":%s\n", selfIp[1]);
+    struct sockaddr_in selfAddr;
+    char myIP[16];
+    unsigned int myPort;
+
+    // Get my ip address and port
+    bzero(&selfAddr, sizeof(selfAddr));
+    socklen_t len = sizeof(selfAddr);
+    getsockname(ds, (struct sockaddr *) &selfAddr, &len);
+    inet_ntop(AF_INET, &selfAddr.sin_addr, myIP, sizeof(myIP));
+    myPort = ntohs(selfAddr.sin_port);
+
+    printf("Local ip address: %s\n", myIP);
+    printf("Local port : %u\n", myPort);
+
+    //Find position of selfAddr in addrServer
+    int selfPosition = -1;
+    int i = 0;
+    while(i<nbSites && selfPosition==-1) {
+        printf("Comparing %s:%d with %s:%d\n", myIP, myPort, inet_ntoa(addrServer[i].sin_addr), ntohs(addrServer[i].sin_port));
+        if(strcmp(myIP, inet_ntoa(addrServer[i].sin_addr)) == 0 && myPort == ntohs(addrServer[i].sin_port)) {
+            selfPosition = i;
+        }
+        i++;
+    }
+    printf("selfPosition : %d\n", selfPosition);
+
+    int socketOpponent[nbSites-1];
+    close(ds);
+    connectToOpponent(addrServer, selfPosition, nbSites);
+
 //
 //    int nombreElement;
 //    addrServer = initAddrServer(argv[2], &nombreElement);
