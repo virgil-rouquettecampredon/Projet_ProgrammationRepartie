@@ -181,8 +181,6 @@ int main(int argc, const char *argv[]) {
         perror("Client : erreur creation socket");
     }
 
-    }
-
     struct sockaddr_in adrServ;
     adrServ.sin_addr.s_addr = inet_addr(argv[1]);
     adrServ.sin_family = AF_INET;
