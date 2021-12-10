@@ -324,9 +324,49 @@ int main(int argc, const char *argv[]) {
     }
     printf("selfPosition : %d\n", selfPosition);
 
-    int socketOpponent[nbSites-1];
     close(ds);
-    connectToOpponent(addrServer, selfPosition, nbSites);
+
+    printf("Création de la socket UDP...\n");
+    ds = socket(PF_INET, SOCK_DGRAM, 0);
+    if (ds < 0) {
+        perror("Client : erreur creation socket UDP");
+    }
+
+    printf("Bind de la socket UDP...\n");
+    if (bind(ds, (struct sockaddr *) &selfAddr, sizeof(selfAddr)) < 0) {
+        perror("Client : erreur bind");
+        close(ds);
+        exit(1);
+    }
+
+    int BUFFER_SIZE = 16000;
+
+    char * buffer = (char *) malloc(BUFFER_SIZE);
+    sprintf(buffer, "Je suis le site -> %s:%d\n", myIP, myPort);
+
+
+    printf("Envoi de son identité au prochain site : %d\n", (selfPosition+1)%nbSites);
+    int snd = sendto(ds, buffer, strlen(buffer), 0, (struct sockaddr *) &addrServer[(selfPosition+1)%nbSites], sizeof(addrServer[(selfPosition+1)%nbSites]));
+    if (snd < 0) {
+        perror("Client : erreur sendto");
+        close(ds);
+        exit(1);
+    }
+
+    printf("Réception d'un message...\n");
+    char buffer2[BUFFER_SIZE];
+    rcv = recv(ds, buffer2, BUFFER_SIZE, 0);
+    if (rcv < 0) {
+        perror("Client : erreur recv");
+        close(ds);
+        exit(1);
+    }
+
+    printf("Message reçu : %s", buffer2);
+
+    close(ds);
+
+
 
 //
 //    int nombreElement;
