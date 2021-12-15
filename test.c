@@ -88,21 +88,29 @@ struct sockaddr_in* initAddrServer(char* str, int n){
 }
 
 int main(int argc, char *argv[]){
-    char str[80] = "ip1:port1#ip2:port2#ip3:port3#ip4:port4#";
+    /* char str[80] = "ip1:port1#ip2:port2#ip3:port3#ip4:port4#";
     int n = 4;
     char* delimiterLigne = "#";
     char* delimiterIp = ":";
     char** lines = split(str,delimiterLigne,4);
     char** ipPort;
     int i =0;
-    /*while(i<n){
+    while(i<n){
          ipPort = split(lines[i],delimiterIp,2);
          //printf(" %s  ", lines[i]);
          printf(" %s  ", ipPort[0]);
          printf(" %s  \n", ipPort[1]);
          i++;
-    }*/
-    initAddrServer(str,n);
+    }
+    initAddrServer(str,n); */
+    char puissance[3];
+    sprintf(puissance, "%d", 0);
+    char attaque[10] ="ATTACK:";
+    strcat(attaque,puissance);
+
+    printf("attaque = %s \n",attaque);
+
+
 
 
 
