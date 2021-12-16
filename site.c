@@ -126,10 +126,10 @@ struct sockaddr_in *initAddrServer(char *str, int n) {
 }
 
 //remove one specified sockaddr_in from addrServer
-void removeAddrServer(struct sockaddr_in *addrServerOpponent, char **ip, int *y) {
+void removeAddrServer(struct sockaddr_in *addrServerOpponent, char *ip, char* port,  int *y) {
     int i = 0;
-    while (((strcmp(inet_ntoa(addrServerOpponent[i].sin_addr), ip[0]) != 0) ||
-            (ntohs(addrServerOpponent[i].sin_port) != atoi(ip[1]))) && (i < *y)) {
+    while (((strcmp(inet_ntoa(addrServerOpponent[i].sin_addr), ip) != 0) ||
+            (ntohs(addrServerOpponent[i].sin_port) != atoi(port))) && (i < *y)) {
         i++;
     }
     if (i < *y) {
@@ -516,6 +516,13 @@ int main(int argc, const char *argv[]) {
             resRecu = true;
             if (atoi(contenuMsg[2]) == GAGNANT) {                           //CAS OU LE SITE A GAGNE
                 me->puissance = me->puissance + 1;
+                nbSiteAttack--;
+                //concatenation ip and port of contact in a char[][]
+                char ipCaptured[15];
+                strcpy(ipPort, inet_ntoa(contact.sin_addr));;
+                char portCaptured[5];
+                strcpy(portCaptured,ntohs(contact.sin_port));
+                addrServer = removeAddrServer(addrServer,ipCaptured,portCaptured, nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
             } else {                                                              //CAS OU LE SITE A PERDU
                 me->etat = PASSIF;
             }
