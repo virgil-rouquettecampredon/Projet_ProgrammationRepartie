@@ -116,3 +116,142 @@ int main(int argc, char *argv[]){
 
 return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct siteState* me = initSiteState(myIP,myPort, &addrServer);
+me->id = selfPosition;
+
+bool victoire = false;
+int nbSiteAttack = nbSites;
+bool resRecu = true; // au debut tout le monde peut attaquer on met resRecu a true dans ce cas là
+
+
+while(me->puissance < (nbSites/2) && !victoire){
+
+//me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
+    if(me->etat == PARTICIPANT && resRecu ){
+    resRecu = false;
+    int y = rand()%nbSiteAttack;
+    char puissance[3];
+    sprintf(puissance, "%d", me->puissance);
+    char attaque[10] ="AT:";
+    strcat(attaque,puissance);
+    char id[3];
+    sprintf(id, "%d", me->id);
+    strcat(attaque,id);
+    sockaddr_in cible = addrServer[y];
+    //envoi du message d'attaque à la cible
+    sendto(ds,attaque,10,0,(struct sockaddr *)&cible,sizeof(cible));
+
+    struct sockaddr_in contact;
+    recvfrom(ds,message,10,0,(struct sockaddr *)&contact,sizeof(contact));
+
+    delimiter = ":";
+    char** contenuMsg = split(message,delimiter,4);
+
+    if(strcmp(contenuMsg[1],"AT")==0){
+        if(me->puissance > atoi(contenuMsg[2])){
+            char res[3];
+            sprintf(res, "%d", PERDANT);
+            char resultat[10] ="RE:";
+            strcat(resultat,res);
+            sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+        }
+        else{
+            if(me->puissance < atoi(contenuMsg[2])){
+                if(me->etat != CAPTURE){
+                    char res[3];
+                    sprintf(res, "%d", GAGNANT);
+                    char resultat[10] ="RE:";
+                    strcat(resultat,res);
+                    sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                    me->pere = &contact;
+                    me->puissance_pere = atoi(contenuMsg[2])+1;
+                }
+                else{
+                    char puissance_adversaire[3] = contenuMsg[2];
+                    char demande[10] ="DM:";
+                    strcat(demande,puissance_adversaire);
+                    char id[3] = contenuMsg[3];
+                    strcat(demande,puissance_adversaire);
+                    strcat(demande,id);
+                    sendto(ds,resultat,10,0,(struct sockaddr *)me->pere,sizeof(me->pere));
+                }
+            }
+            else{
+                if(me->id > atoi(contenuMsg[3])){
+                    char res[3];
+                    sprintf(res, "%d", PERDANT);
+                    char resultat[10] ="RE:";
+                    strcat(resultat,res);
+                    sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                }
+                else{
+                    char res[3];
+                    sprintf(res, "%d", GAGNANT);
+                    char resultat[10] ="RE:";
+                    strcat(resultat,res);
+                    sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                    me->pere = &contact;
+                    me->puissance_pere = atoi(contenuMsg[2])+1;
+                }
+            }
+        }
+    }
+    if(strcmp(contenuMsg[1],"DM")==0){
+        if(me->puissance > atoi(contenuMsg[2])){
+                    char res[3];
+                    sprintf(res, "%d", PERDANT);
+                    char resultat[10] ="RT:";
+                    strcat(resultat,res);
+                    sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                }
+                else{
+
+                }
+
+        }
+
+
+
+    }
+
+}

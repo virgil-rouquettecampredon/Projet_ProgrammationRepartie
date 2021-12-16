@@ -19,11 +19,16 @@
 #define PARTICIPANT 201
 #define CAPTURE 202
 
+
+#define true 1
+#define false 0
+
+
 struct siteState {
     struct sockaddr_in *pere;
     int id;
     int puissance;
-    int puissance_Pere;
+    int puissance_pere;
     int etat;
     char *ip;
     int port;
@@ -34,7 +39,7 @@ struct siteState *initSiteState(char *ip, char *port, struct sockaddr_in *liste_
     struct siteState *site;
     site->id = -1;
     site->pere = (void *) 0;
-    site->puissance_Pere = 0;
+    site->puissance_pere = 0;
     site->etat = PARTICIPANT;
     site->ip = ip;
     site->port = atoi(port);
@@ -369,14 +374,21 @@ int main(int argc, const char *argv[]) {
     close(ds);
 */
 
-addrServer;
+
 struct siteState* me = initSiteState(myIP,myPort, &addrServer);
 me->id = selfPosition;
 
-bool victoire = false;
+int victoire = false;
 int nbSiteAttack = nbSites;
+int resRecu = true; // au debut tout le monde peut attaquer on met resRecu a true dans ce cas là
+
+struct sockaddr_in* attacker;
+int attacker_puissance;
 while(me->puissance < (nbSites/2) && !victoire){
-    if(me->etat == PARTICIPANT){
+
+//me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
+    if(me->etat == PARTICIPANT && resRecu ){
+    resRecu = false;
     int y = rand()%nbSiteAttack;
     char puissance[3];
     sprintf(puissance, "%d", me->puissance);
@@ -385,14 +397,15 @@ while(me->puissance < (nbSites/2) && !victoire){
     char id[3];
     sprintf(id, "%d", me->id);
     strcat(attaque,id);
-    sockaddr_in cible = addrServer[y];
+    struct sockaddr_in cible = addrServer[y];
     //envoi du message d'attaque à la cible
     sendto(ds,attaque,10,0,(struct sockaddr *)&cible,sizeof(cible));
 
     struct sockaddr_in contact;
+    char message [10];
     recvfrom(ds,message,10,0,(struct sockaddr *)&contact,sizeof(contact));
 
-    delimiter = ":";
+    char delimiter = ":";
     char** contenuMsg = split(message,delimiter,4);
 
     if(strcmp(contenuMsg[1],"AT")==0){
@@ -415,13 +428,15 @@ while(me->puissance < (nbSites/2) && !victoire){
                     me->puissance_pere = atoi(contenuMsg[2])+1;
                 }
                 else{
-                    char puissance_adversaire[3] = contenuMsg[2];
+                    attacker = &contact;
+                    attacker_puissance = atoi(contenuMsg[2]);
+                    char* puissance_adversaire = contenuMsg[2];
                     char demande[10] ="DM:";
                     strcat(demande,puissance_adversaire);
-                    char id[3] = contenuMsg[3];
+                    char* id = contenuMsg[3];
                     strcat(demande,puissance_adversaire);
                     strcat(demande,id);
-                    sendto(ds,resultat,10,0,(struct sockaddr *)me->pere,sizeof(me->pere));
+                    sendto(ds,demande,10,0,(struct sockaddr *)me->pere,sizeof(me->pere));
                 }
             }
             else{
@@ -454,14 +469,82 @@ while(me->puissance < (nbSites/2) && !victoire){
                 }
                 else{
 
+                    if(me->puissance < atoi(contenuMsg[2])){
+                        char res[3];
+                        sprintf(res, "%d", GAGNANT);
+                        char resultat[10] ="RE:";
+                        strcat(resultat,res);
+                        sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                        me->pere = &contact;
+                        me->puissance_pere = atoi(contenuMsg[2])+1;
+
+                    }
+                    else{
+                        //estampille dans le cas de puissances egales
+                        if(me->id > atoi(contenuMsg[3])){
+                            char res[3];
+                            sprintf(res, "%d", PERDANT);
+                            char resultat[10] ="RE:";
+                            strcat(resultat,res);
+                            sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                         }
+
+                        else{
+                            char res[3];
+                            sprintf(res, "%d", GAGNANT);
+                            char resultat[10] ="RE:";
+                            strcat(resultat,res);
+                            sendto(ds,resultat,10,0,(struct sockaddr *)&cible,sizeof(contact));
+                            me->pere = &contact;
+                            me->puissance_pere = atoi(contenuMsg[2])+1;
+                        }
+                    }
                 }
 
         }
+        if(strcmp(contenuMsg[1],"RT")== 0) {
+            if (atoi(contenuMsg[2]) == GAGNANT) {
+                me->pere = attacker;
+                me->puissance_pere = attacker_puissance;
+                char res[3];
+                sprintf(res, "%d", GAGNANT);
+                char resultat[10] ="RE:";
+                strcat(resultat,res);
+                sendto(ds,resultat,10,0,(struct sockaddr *)&attacker,sizeof(attacker));
+            }
+            else{
+                char res[3];
+                sprintf(res, "%d", PERDANT);
+                char resultat[10] ="RE:";
+                strcat(resultat,res);
+                sendto(ds,resultat,10,0,(struct sockaddr *)&attacker,sizeof(attacker));
+            }
 
+        }
 
+        if (strcmp(contenuMsg[1],"RE")== 0){
+            if (atoi(contenuMsg[2]) == GAGNANT){
+                me->puissance = me->puissance + 1;
+            }
+            else{
+                me->etat = PASSIF;
+            }
+
+        }
+
+        if (me->puissance > (nbSites/2)) {
+            char res[3];
+            sprintf(res, "%d", GAGNANT);
+            char resultat[10] ="VI:";
+            strcat(resultat,res);
+            //je sais si il ya une petite astuce pour faire un broadcast sans faire de boucle
+            sendto(ds,resultat,10,0,(struct sockaddr *)&contact,sizeof(contact));
+        }
+        if (strcmp(contenuMsg[1],"VI")==0){
+            victoire = true;
+        }
 
     }
-
 }
 
 //    int nombreElement;
