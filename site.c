@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <time.h>
+#include <stdlib.h>
 //#include "site.h"
 
 //Sabri the sublime
@@ -36,7 +37,7 @@ struct siteState {
     struct sockaddr_in *liste_IP;
 };
 
-struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in *liste_IP) {
+struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in *liste_IP, int nbAdversaire) {
     struct siteState *site;
     site->id = -1;
     site->pere = (void *) 0;
@@ -45,7 +46,10 @@ struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in 
     site->etat = PARTICIPANT;
     site->ip = ip;
     site->port = port;
-    site->liste_IP = liste_IP;
+    site->liste_IP = (struct sockaddr_in*) malloc(sizeof(struct sockaddr_in) * nbAdversaire);
+    for(int i = 0; i<nbAdversaire; i++) {
+        site->liste_IP[i] = liste_IP[i];
+    }
 
     return site;
 }
@@ -265,8 +269,6 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    printf("Attente du nombre de sites...\n");
-
     //Réception nbSites
     int nbSites;
     int rcv = recvTCP(ds, &nbSites, sizeof(int));
@@ -282,7 +284,6 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
     printf("Nombre de sites : %d\n", nbSites);
-    printf("Attente de l'identité des autres sites...\n");
 
     //Reception des ips et ports des autres sites sous forme d'une chaine de char avec delimit
     //Taille message ip/port
@@ -301,8 +302,6 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    printf("Liste des adversaires : %s\n", allClient);
-
     // Création d'un tableau de socketAdversaire
     struct sockaddr_in *addrServer = (struct sockaddr_in *) malloc(nbSites * sizeof(struct sockaddr_in));
     // Initialisation du tableau des adversaires
@@ -319,31 +318,23 @@ int main(int argc, const char *argv[]) {
     inet_ntop(AF_INET, &selfAddr.sin_addr, myIP, sizeof(myIP));
     myPort = ntohs(selfAddr.sin_port);
 
-    printf("Local ip address: %s\n", myIP);
-    printf("Local port : %u\n", myPort);
-
     //Find position of selfAddr in addrServer
     int selfPosition = -1;
     int i = 0;
     while (i < nbSites && selfPosition == -1) {
-        printf("Comparing %s:%d with %s:%d\n", myIP, myPort, inet_ntoa(addrServer[i].sin_addr),
-               ntohs(addrServer[i].sin_port));
         if (strcmp(myIP, inet_ntoa(addrServer[i].sin_addr)) == 0 && myPort == ntohs(addrServer[i].sin_port)) {
             selfPosition = i;
         }
         i++;
     }
-    printf("selfPosition : %d\n", selfPosition);
 
     close(ds);
 
-    printf("Création de la socket UDP...\n");
     ds = socket(PF_INET, SOCK_DGRAM, 0);
     if (ds < 0) {
         perror("Client : erreur creation socket UDP");
     }
 
-    printf("Bind de la socket UDP...\n");
     if (bind(ds, (struct sockaddr *) &selfAddr, sizeof(selfAddr)) < 0) {
         perror("Client : erreur bind");
         close(ds);
@@ -380,13 +371,15 @@ int main(int argc, const char *argv[]) {
  */
 
     int nbSiteAttack = nbSites;
-    nbSites--;
-    printf("Je m'enlève de la liste\n");
     removeAddrServer(addrServer, myIP, myPort, &nbSiteAttack);
-    printf("Initialisation du site...\n");
+    for(int i=0; i<nbSiteAttack; i++){
+        printf("Adversaire %d : %s:%d\n", i, inet_ntoa(addrServer[i].sin_addr), ntohs(addrServer[i].sin_port));
+    }
+
     struct siteState *me = (struct siteState *) malloc(sizeof(struct siteState));
-    me = initSiteState(myIP, myPort, addrServer);
+    me = initSiteState(myIP, myPort, addrServer, nbSiteAttack);
     me->id = selfPosition;
+    printf("Mon port : %d\n", myPort);
 
     int victoire = false;
     int resRecu = true; // au debut tout le monde peut attaquer on met resRecu a true dans ce cas là
@@ -394,10 +387,10 @@ int main(int argc, const char *argv[]) {
     struct sockaddr_in *attacker;
     int attacker_puissance;
     socklen_t lg = sizeof(struct sockaddr_in);
-    printf("Début des hostilités\n");
 
     int z = 0;
     while (me->puissance < (nbSites / 2) + 1 && !victoire) {
+        printf("-----------------------------------------------------\n");
         printf("Début du tour : %d\n", z);
         z++;
 
@@ -423,11 +416,14 @@ int main(int argc, const char *argv[]) {
         }
 
         struct sockaddr_in contact;
-        char message[20];
+        char message[10];
         printf("Attente d'un message...\n");
-        printf("Socket state : %d\n", ds);
-        recvfrom(ds, message, 20, 0, (struct sockaddr *) &contact, &lg);
-        printf("Socket state after recv : %d\n", ds);
+        int receive = recvfrom(ds, message, 10, 0, (struct sockaddr *) &contact, &lg);
+        if (receive < 0) {
+            perror("Client : erreur recvfrom");
+            close(ds);
+            exit(1);
+        }
         printf("Message reçu : %s\n", message);
         char *delimiter = ":";
         char **contenuMsg = split(message, delimiter, 4);
@@ -571,11 +567,11 @@ int main(int argc, const char *argv[]) {
             } else {                                                              //CAS OU LE SITE A PERDU
                 printf("Resultat : PERDANT\n");
                 me->etat = PASSIF;
-                resRecu = true;
             }
 
         }
 
+        printf("Puissance : %d\n", me->puissance);
         if (me->puissance > (nbSites / 2)) {                                       //CAS OU J'AI GAGNE
             printf("Nombre de sites : %d\n", nbSites);
             printf("Nombre de sites à attaquer: %d\n", nbSiteAttack);
@@ -584,10 +580,13 @@ int main(int argc, const char *argv[]) {
             char resultat[10] = "VI:";
             strcat(resultat, res);
 
-            for (int j = 0; j < nbSites; ++j) {
+            for (int j = 0; j < nbSites-1; ++j) {
                 printf("Envoi du message au site : %d\n", j);
+                printf("Envoi au site : %s:%d\n", inet_ntoa(me->liste_IP[j].sin_addr),
+                       ntohs((me->liste_IP)[j].sin_port));
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
             }
+            printf("Tout les messages de victoires envoyés \n");
 
         }
         if (strcmp(contenuMsg[0], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
