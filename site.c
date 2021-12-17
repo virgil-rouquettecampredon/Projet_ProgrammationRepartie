@@ -377,6 +377,7 @@ int main(int argc, const char *argv[]) {
  */
 
 
+    printf("Initialisation du site...\n");
     struct siteState *me = initSiteState(myIP, myPort, addrServer);
     me->id = selfPosition;
 
@@ -387,7 +388,8 @@ int main(int argc, const char *argv[]) {
     struct sockaddr_in *attacker;
     int attacker_puissance;
     socklen_t lg = sizeof(struct sockaddr_in);
-    while (me->puissance < (nbSites / 2) && !victoire) {
+    printf("Début des hostilités\n");
+    while (!victoire) {
 
 //me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
         if (me->etat == PARTICIPANT && resRecu) {
@@ -402,6 +404,7 @@ int main(int argc, const char *argv[]) {
             strcat(attaque, id);
             struct sockaddr_in cible = addrServer[y];
             //envoi du message d'attaque à la cible
+            printf("Envoi de l'attaque au site %d\n", y);
             sendto(ds, attaque, 10, 0, (struct sockaddr *) &cible, sizeof(cible));
         }
 
@@ -412,7 +415,8 @@ int main(int argc, const char *argv[]) {
         char* delimiter = ":";
         char **contenuMsg = split(message, delimiter, 4);
 
-        if (strcmp(contenuMsg[1], "AT") == 0) {                                    //MESSAGE ATTAQUE RECU
+        if (strcmp(contenuMsg[1], "AT") == 0) {
+            printf("Reception d'une attaque\n");
             if (me->puissance > atoi(contenuMsg[2])) {                      //CAS OU JE SUIS LE PLUS FORT
                 char res[3];
                 sprintf(res, "%d", PERDANT);
@@ -439,8 +443,7 @@ int main(int argc, const char *argv[]) {
                     strcat(demande, id);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
-            } else if (me->id >
-                       atoi(contenuMsg[3])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            } else if (me->id > atoi(contenuMsg[3])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
@@ -459,6 +462,7 @@ int main(int argc, const char *argv[]) {
 
 
         if (strcmp(contenuMsg[1], "DM") == 0) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
+            printf("Reception d'une demande de puissance\n");
             if (me->puissance > atoi(contenuMsg[2])) {                      //CAS OU JE SUIS LE PLUS FORT
                 char res[3];
                 sprintf(res, "%d", PERDANT);
@@ -494,6 +498,7 @@ int main(int argc, const char *argv[]) {
 
         }
         if (strcmp(contenuMsg[1], "RT") == 0) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
+            printf("Reception d'un retour de demande de puissance\n");
             if (atoi(contenuMsg[2]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
                 me->pere = attacker;
                 me->puissance_pere = attacker_puissance;
@@ -514,6 +519,7 @@ int main(int argc, const char *argv[]) {
 
         if (strcmp(contenuMsg[1], "RE") == 0) {                                   //MESSAGE RESULTAT RECU
             resRecu = true;
+            printf("Reception d'un resultat\n");
             if (atoi(contenuMsg[2]) == GAGNANT) {                           //CAS OU LE SITE A GAGNE
                 me->puissance = me->puissance + 1;
                 char ipCaptured[15];
@@ -536,10 +542,13 @@ int main(int argc, const char *argv[]) {
             }
         }
         if (strcmp(contenuMsg[1], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
+            printf("Reception d'un message de victoire\n");
             victoire = true;
+            printf("Victoire du site %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
         }
 
     }
+    printf("La partie est terminée\n");
 
 
 //    int nombreElement;
