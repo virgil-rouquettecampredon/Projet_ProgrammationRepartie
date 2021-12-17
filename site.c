@@ -584,9 +584,9 @@ int main(int argc, const char *argv[]) {
             char resultat[10] = "VI:";
             strcat(resultat, res);
 
-                for (int j = 0; j < nbSites; ++j) {
-                    printf("Envoi du message au site : %d\n", j);
-                    sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
+            for (int j = 0; j < nbSites; ++j) {
+                printf("Envoi du message au site : %d\n", j);
+                sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
             }
 
         }
