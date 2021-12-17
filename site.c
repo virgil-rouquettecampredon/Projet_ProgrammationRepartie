@@ -444,12 +444,13 @@ int main(int argc, const char *argv[]) {
             } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 printf("Je suis le plus faible\n");
                 if (me->etat != CAPTURE) {                                        //CAS OU JE NE SUIS PAS CAPTURE
-                    printf("Je nai pas de pere\n");
+                    printf("Je n ai pas de pere\n");
                     char res[3];
                     sprintf(res, "%d", GAGNANT);
                     char resultat[10] = "RE:";
                     strcat(resultat, res);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                    me->etat = CAPTURE;
                     me->pere = &contact;
                     me->puissance_pere = atoi(contenuMsg[1]) + 1;
                 } else {                                                          //CAS OU JE SUIS CAPTURE
@@ -475,12 +476,13 @@ int main(int argc, const char *argv[]) {
             } else {                                                            //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
                 printf("J ai la meme puissance, mais mon Id est plus petit\n");
                 if (me->etat != CAPTURE) {
-                    printf("Je nai pas de pere\n");
+                    printf("Je n ai pas de pere\n");
                     char res[3];
                     sprintf(res, "%d", GAGNANT);
                     char resultat[10] = "RE:";
                     strcat(resultat, res);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                    me->etat = CAPTURE;
                     me->pere = &contact;
                     me->puissance_pere = atoi(contenuMsg[2]) + 1;
                 } else {
@@ -510,7 +512,7 @@ int main(int argc, const char *argv[]) {
             } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 char res[3];
                 sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RE:";
+                char resultat[10] = "RT:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->etat = PASSIF;
@@ -521,13 +523,13 @@ int main(int argc, const char *argv[]) {
                      atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 char res[3];
                 sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RE:";
+                char resultat[10] = "RT:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
             } else {                                                              //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
                 char res[3];
                 sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RE:";
+                char resultat[10] = "RT:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->etat = PASSIF;
@@ -581,11 +583,10 @@ int main(int argc, const char *argv[]) {
             sprintf(res, "%d", GAGNANT);
             char resultat[10] = "VI:";
             strcat(resultat, res);
-            while(1) {
+
                 for (int j = 0; j < nbSites; ++j) {
                     printf("Envoi du message au site : %d\n", j);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
-                }
             }
 
         }
