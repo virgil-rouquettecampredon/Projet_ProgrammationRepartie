@@ -451,15 +451,14 @@ int main(int argc, const char *argv[]) {
                     char demande[10] = "DM:";
                     strcat(demande, puissance_adversaire);
                     char *id = contenuMsg[2];
-                    strcat(demande, puissance_adversaire);
+                    strcat(demande, ":");
                     strcat(demande, id);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
-            } else if (me->id >
-                       atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            } else if (me->id > atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 printf("J ai la meme puissance, mais mon Id est plus grand\n");
                 char res[3];
-                sprintf(res, "%d", PERDANT);
+                sprintf(res, "%d", GAGNANT);
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
@@ -468,7 +467,7 @@ int main(int argc, const char *argv[]) {
                 if (me->etat != CAPTURE) {
                     printf("Je nai pas de pere\n");
                     char res[3];
-                    sprintf(res, "%d", GAGNANT);
+                    sprintf(res, "%d", PERDANT);
                     char resultat[10] = "RE:";
                     strcat(resultat, res);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
@@ -480,9 +479,9 @@ int main(int argc, const char *argv[]) {
                     attacker_puissance = atoi(contenuMsg[1]);
                     char *puissance_adversaire = contenuMsg[1];
                     char demande[10] = "DM:";
-                    strcat(demande, puissance_adversaire);
                     char *id = contenuMsg[2];
                     strcat(demande, puissance_adversaire);
+                    strcat(demande, ":");
                     strcat(demande, id);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
@@ -504,13 +503,11 @@ int main(int argc, const char *argv[]) {
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-                me->pere = &contact;
-                me->puissance_pere = atoi(contenuMsg[1]) + 1;
+                me->etat = PASSIF;
 
             }
                 //estampille dans le cas de puissances egales
-            else if (me->id >
-                     atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            else if (me->id > atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
@@ -522,8 +519,7 @@ int main(int argc, const char *argv[]) {
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-                me->pere = &contact;
-                me->puissance_pere = atoi(contenuMsg[1]) + 1;
+                me->etat = PASSIF;
             }
 
         }
@@ -532,7 +528,7 @@ int main(int argc, const char *argv[]) {
             printf("Reception d'un retour de demande de puissance\n");
             if (atoi(contenuMsg[1]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
                 me->pere = attacker;
-                me->puissance_pere = attacker_puissance;
+                me->puissance_pere = attacker_puissance+1;
                 char res[3];
                 sprintf(res, "%d", GAGNANT);
                 char resultat[10] = "RE:";
