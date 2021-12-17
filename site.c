@@ -383,7 +383,8 @@ int main(int argc, const char *argv[]) {
     printf("Je m'enlève de la liste\n");
     removeAddrServer(addrServer, myIP, myPort, &nbSiteAttack);
     printf("Initialisation du site...\n");
-    struct siteState *me = initSiteState(myIP, myPort, addrServer);
+    struct siteState *me = (struct siteState*) malloc(sizeof(struct siteState));
+    me = initSiteState(myIP, myPort, addrServer);
     me->id = selfPosition;
 
     int victoire = false;
@@ -458,7 +459,7 @@ int main(int argc, const char *argv[]) {
             } else if (me->id > atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 printf("J ai la meme puissance, mais mon Id est plus grand\n");
                 char res[3];
-                sprintf(res, "%d", GAGNANT);
+                sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
@@ -467,7 +468,7 @@ int main(int argc, const char *argv[]) {
                 if (me->etat != CAPTURE) {
                     printf("Je nai pas de pere\n");
                     char res[3];
-                    sprintf(res, "%d", PERDANT);
+                    sprintf(res, "%d", GAGNANT);
                     char resultat[10] = "RE:";
                     strcat(resultat, res);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
