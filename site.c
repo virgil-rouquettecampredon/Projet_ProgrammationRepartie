@@ -380,10 +380,11 @@ int main(int argc, const char *argv[]) {
  */
 
     int nbSiteAttack = nbSites;
+    nbSites--;
     printf("Je m'enlève de la liste\n");
     removeAddrServer(addrServer, myIP, myPort, &nbSiteAttack);
     printf("Initialisation du site...\n");
-    struct siteState *me = (struct siteState*) malloc(sizeof(struct siteState));
+    struct siteState *me = (struct siteState *) malloc(sizeof(struct siteState));
     me = initSiteState(myIP, myPort, addrServer);
     me->id = selfPosition;
 
@@ -394,7 +395,11 @@ int main(int argc, const char *argv[]) {
     int attacker_puissance;
     socklen_t lg = sizeof(struct sockaddr_in);
     printf("Début des hostilités\n");
+
+    int z = 0;
     while (me->puissance < (nbSites / 2) + 1 && !victoire) {
+        printf("Début du tour : %d\n", z);
+        z++;
 
 //me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
         if (me->etat == PARTICIPANT && resRecu) {
@@ -418,8 +423,11 @@ int main(int argc, const char *argv[]) {
         }
 
         struct sockaddr_in contact;
-        char message[10];
-        recvfrom(ds, message, 10, 0, (struct sockaddr *) &contact, &lg);
+        char message[20];
+        printf("Attente d'un message...\n");
+        printf("Socket state : %d\n", ds);
+        recvfrom(ds, message, 20, 0, (struct sockaddr *) &contact, &lg);
+        printf("Socket state after recv : %d\n", ds);
         printf("Message reçu : %s\n", message);
         char *delimiter = ":";
         char **contenuMsg = split(message, delimiter, 4);
@@ -456,7 +464,8 @@ int main(int argc, const char *argv[]) {
                     strcat(demande, id);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
-            } else if (me->id > atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            } else if (me->id >
+                       atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 printf("J ai la meme puissance, mais mon Id est plus grand\n");
                 char res[3];
                 sprintf(res, "%d", PERDANT);
@@ -508,7 +517,8 @@ int main(int argc, const char *argv[]) {
 
             }
                 //estampille dans le cas de puissances egales
-            else if (me->id > atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            else if (me->id >
+                     atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
@@ -529,7 +539,7 @@ int main(int argc, const char *argv[]) {
             printf("Reception d'un retour de demande de puissance\n");
             if (atoi(contenuMsg[1]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
                 me->pere = attacker;
-                me->puissance_pere = attacker_puissance+1;
+                me->puissance_pere = attacker_puissance + 1;
                 char res[3];
                 sprintf(res, "%d", GAGNANT);
                 char resultat[10] = "RE:";
@@ -559,18 +569,25 @@ int main(int argc, const char *argv[]) {
             } else {                                                              //CAS OU LE SITE A PERDU
                 printf("Resultat : PERDANT\n");
                 me->etat = PASSIF;
+                resRecu = true;
             }
 
         }
 
         if (me->puissance > (nbSites / 2)) {                                       //CAS OU J'AI GAGNE
+            printf("Nombre de sites : %d\n", nbSites);
+            printf("Nombre de sites à attaquer: %d\n", nbSiteAttack);
             char res[3];
             sprintf(res, "%d", GAGNANT);
             char resultat[10] = "VI:";
             strcat(resultat, res);
-            for (int j = 0; j < nbSites; ++j) {
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
+            while(1) {
+                for (int j = 0; j < nbSites; ++j) {
+                    printf("Envoi du message au site : %d\n", j);
+                    sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
+                }
             }
+
         }
         if (strcmp(contenuMsg[0], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
             printf("Reception d'un message de victoire\n");
