@@ -54,14 +54,18 @@ struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in 
     return site;
 }
 
-/*char** splitIp(char* ip){
-    char** ip_array = (char**)malloc(4 * sizeof(char*));
-    const char* delimiter = ":";
-    strtok(ip, delimiter);
-    ip_array[0] = ip;
-    ip_array[1] = strtok(NULL, delimiter);
-
-    return ip_array;
+/*char* concatMessageEnvoye(char* typeMessage, int puissance, int id){
+    char message[20];
+    char idString[3];
+    char puissanceString[3];
+    sprintf(puissanceString, "%d", puissance);
+    sprintf(idString, "%d", id);
+    strcat(message, typeMessage);
+    strcat(message, ":");
+    strcat(message, puissanceString);
+    strcat(message, ":");
+    strcat(message, idString);
+    return &message;
 }*/
 
 char **split(char s[], char *delimiteur, int n) {
@@ -77,36 +81,6 @@ char **split(char s[], char *delimiteur, int n) {
     return tab;
 }
 
-/*struct sockaddr_in* initAddrServer(const char* emplacementFichier, int* y){
-    //load file
-    FILE* fichier = fopen(emplacementFichier, "r");
-    //return error if file doesn't exist
-    if(fichier == NULL){
-        printf("Error: file doesn't exist\n");
-        exit(1);
-    }
-    struct sockaddr_in* addrServer;
-    char* ipTemp;
-    ssize_t nbLus = 0;
-    int i = 0;
-    while ((getline(&ipTemp, &nbLus, fichier)) != -1) {
-        i++;
-    }
-    addrServer = (struct sockaddr_in*)malloc(i * sizeof(struct sockaddr_in));
-    rewind(fichier);
-
-    i = 0;
-    int tailleSockAddr_in = sizeof(struct sockaddr_in);
-    while ((getline(&ipTemp, &nbLus, fichier)) != -1){
-        char** ip_array = splitIp(ipTemp);
-        addrServer[i].sin_family = AF_INET;
-        addrServer[i].sin_addr.s_addr = inet_addr(ip_array[0]);
-        addrServer[i].sin_port = htons(atoi(ip_array[1]));
-        i++;
-    }
-    *y = i;
-    return addrServer;
-}*/
 //fonction qui initialise le tableau des adversiars
 struct sockaddr_in *initAddrServer(char *str, int n) {
     struct sockaddr_in *addrServer = (struct sockaddr_in *) malloc(n * sizeof(struct sockaddr_in));
@@ -341,35 +315,6 @@ int main(int argc, const char *argv[]) {
         exit(1);
     }
 
-    /* int BUFFER_SIZE = 16000;
-
-     char *buffer = (char *) malloc(BUFFER_SIZE);
-     sprintf(buffer, "Je suis le site -> %s:%d\n", myIP, myPort);
-
-
-     printf("Envoi de son identité au prochain site : %d\n", (selfPosition + 1) % nbSites);
-     int snd = sendto(ds, buffer, strlen(buffer), 0, (struct sockaddr *) &addrServer[(selfPosition + 1) % nbSites],
-                      sizeof(addrServer[(selfPosition + 1) % nbSites]));
-     if (snd < 0) {
-         perror("Client : erreur sendto");
-         close(ds);
-         exit(1);
-     }
-
-     printf("Réception d'un message...\n");
-     char buffer2[BUFFER_SIZE];
-     rcv = recv(ds, buffer2, BUFFER_SIZE, 0);
-     if (rcv < 0) {
-         perror("Client : erreur recv");
-         close(ds);
-         exit(1);
-     }
-
-     printf("Message reçu : %s", buffer2);
-
-     close(ds);
- */
-
     int nbSiteAttack = nbSites;
     removeAddrServer(addrServer, myIP, myPort, &nbSiteAttack);
     for(int i=0; i<nbSiteAttack; i++){
@@ -402,7 +347,7 @@ int main(int argc, const char *argv[]) {
             sprintf(puissance, "%d", me->puissance);
             //printf("Puissance me : %i\n", me->puissance);
             //printf("Puissance String: %s\n", puissance);
-            char attaque[10] = "AT:";
+            char attaque[20] = "AT:";
             strcat(attaque, puissance);
             char id[3];
             sprintf(id, "%d", me->id);
@@ -412,7 +357,9 @@ int main(int argc, const char *argv[]) {
             //envoi du message d'attaque à la cible
             printf("Envoi de l'attaque au site %s:%d\n", inet_ntoa(addrServer[y].sin_addr),
                    ntohs(addrServer[y].sin_port));
+            calcul(1);
             sendto(ds, attaque, 10, 0, (struct sockaddr *) &cible, sizeof(cible));
+            calcul(1);
         }
 
         struct sockaddr_in contact;
@@ -438,6 +385,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
             } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 printf("Je suis le plus faible\n");
@@ -449,6 +397,7 @@ int main(int argc, const char *argv[]) {
                     strcat(resultat, res);
                     printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                            ntohs(contact.sin_port));
+                    calcul(1);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                     me->etat = CAPTURE;
                     me->pere = &contact;
@@ -465,6 +414,7 @@ int main(int argc, const char *argv[]) {
                     strcat(demande, id);
                     printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
                            ntohs(me->pere->sin_port));
+                    calcul(1);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
             } else if (me->id >
@@ -476,6 +426,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
             } else {                                                            //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
                 printf("J ai la meme puissance, mais mon Id est plus petit\n");
@@ -487,6 +438,7 @@ int main(int argc, const char *argv[]) {
                     strcat(resultat, res);
                     printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                            ntohs(contact.sin_port));
+                    calcul(1);
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                     me->etat = CAPTURE;
                     me->pere = &contact;
@@ -503,6 +455,7 @@ int main(int argc, const char *argv[]) {
                     strcat(demande, id);
                     printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
                            ntohs(me->pere->sin_port));
+                    calcul(1);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
             }
@@ -518,6 +471,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
             } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 char res[3];
@@ -526,6 +480,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->etat = PASSIF;
 
@@ -539,6 +494,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
             } else {                                                              //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
                 char res[3];
@@ -547,6 +503,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->etat = PASSIF;
             }
@@ -564,6 +521,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
                        ntohs(me->pere->sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &attacker, lg);
             } else {                                                             //CAS OU LE PERE A GAGNE
                 char res[3];
@@ -572,6 +530,7 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &attacker, lg);
             }
 
@@ -608,6 +567,7 @@ int main(int argc, const char *argv[]) {
                 printf("Envoi du message au site : %d\n", j);
                 printf("Envoi au site : %s:%d\n", inet_ntoa(me->liste_IP[j].sin_addr),
                        ntohs((me->liste_IP)[j].sin_port));
+                calcul(1);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
             }
             printf("Tout les messages de victoires envoyés \n");
@@ -626,29 +586,7 @@ int main(int argc, const char *argv[]) {
     }
     printf("La partie est terminée\n");
 
-
-//    int nombreElement;
-//    addrServer = initAddrServer(argv[2], &nombreElement);
-//
-//
-//    removeAddrServer(addrServer, selfIp, &nombreElement);
-//
-//    //print all sockaddr_in from addrServer
-//    for(int i = 0; i < nombreElement; i++){
-//        printf("Adresse IP %d: %s:%d\n",i, inet_ntoa(addrServer[i].sin_addr),ntohs(addrServer[i].sin_port));
-//    }
-//
-//    printf("Initialisation self state\n");
-//
-//    struct siteState* selfState = initSiteState(selfIp[0], selfIp[1], addrServer);
-//    printf("%s", selfState->ip);
-//    printf(":%d\n", selfState->port);
-//    printf("%d\n", selfState->puissance_Pere);
-//    printf("Is father null ? %d\n", selfState->pere==(void*)0);
-
-
     close(ds);
-
 
     return 0;
 }
