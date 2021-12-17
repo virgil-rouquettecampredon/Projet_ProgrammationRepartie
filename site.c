@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <time.h>
 //#include "site.h"
 
 //Sabri the sublime
@@ -40,6 +41,7 @@ struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in 
     site->id = -1;
     site->pere = (void *) 0;
     site->puissance_pere = 0;
+    site->puissance = 1;
     site->etat = PARTICIPANT;
     site->ip = ip;
     site->port = port;
@@ -126,7 +128,7 @@ struct sockaddr_in *initAddrServer(char *str, int n) {
 }
 
 //remove one specified sockaddr_in from addrServer
-void removeAddrServer(struct sockaddr_in *addrServerOpponent, char *ip, unsigned int port,  int *y) {
+void removeAddrServer(struct sockaddr_in *addrServerOpponent, char *ip, unsigned int port, int *y) {
     int i = 0;
     while (((strcmp(inet_ntoa(addrServerOpponent[i].sin_addr), ip) != 0) ||
             (ntohs(addrServerOpponent[i].sin_port) != port)) && (i < *y)) {
@@ -242,6 +244,7 @@ int main(int argc, const char *argv[]) {
                argv[0]);
         exit(1);
     }
+    srand(time(NULL));
     //Connexion au serveur central
     int ds = socket(PF_INET, SOCK_STREAM, 0);
     if (ds < 0) {
@@ -376,20 +379,21 @@ int main(int argc, const char *argv[]) {
      close(ds);
  */
 
-
+    int nbSiteAttack = nbSites;
+    printf("Je m'enlève de la liste\n");
+    removeAddrServer(addrServer, myIP, myPort, &nbSiteAttack);
     printf("Initialisation du site...\n");
     struct siteState *me = initSiteState(myIP, myPort, addrServer);
     me->id = selfPosition;
 
     int victoire = false;
-    int nbSiteAttack = nbSites;
     int resRecu = true; // au debut tout le monde peut attaquer on met resRecu a true dans ce cas là
 
     struct sockaddr_in *attacker;
     int attacker_puissance;
     socklen_t lg = sizeof(struct sockaddr_in);
     printf("Début des hostilités\n");
-    while (!victoire) {
+    while (me->puissance < (nbSites / 2) + 1 && !victoire) {
 
 //me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
         if (me->etat == PARTICIPANT && resRecu) {
@@ -397,34 +401,72 @@ int main(int argc, const char *argv[]) {
             int y = rand() % nbSiteAttack;
             char puissance[3];
             sprintf(puissance, "%d", me->puissance);
+            //printf("Puissance me : %i\n", me->puissance);
+            //printf("Puissance String: %s\n", puissance);
             char attaque[10] = "AT:";
             strcat(attaque, puissance);
             char id[3];
             sprintf(id, "%d", me->id);
+            strcat(attaque, ":");
             strcat(attaque, id);
             struct sockaddr_in cible = addrServer[y];
             //envoi du message d'attaque à la cible
-            printf("Envoi de l'attaque au site %d\n", y);
+            printf("Envoi de l'attaque au site %s:%d\n", inet_ntoa(addrServer[y].sin_addr),
+                   ntohs(addrServer[y].sin_port));
             sendto(ds, attaque, 10, 0, (struct sockaddr *) &cible, sizeof(cible));
         }
 
         struct sockaddr_in contact;
         char message[10];
         recvfrom(ds, message, 10, 0, (struct sockaddr *) &contact, &lg);
-
-        char* delimiter = ":";
+        printf("Message reçu : %s\n", message);
+        char *delimiter = ":";
         char **contenuMsg = split(message, delimiter, 4);
 
-        if (strcmp(contenuMsg[1], "AT") == 0) {
+        if (strcmp(contenuMsg[0], "AT") == 0) {
             printf("Reception d'une attaque\n");
-            if (me->puissance > atoi(contenuMsg[2])) {                      //CAS OU JE SUIS LE PLUS FORT
+            if (me->puissance > atoi(contenuMsg[1])) {                      //CAS OU JE SUIS LE PLUS FORT
+                printf("Je suis le plus fort\n");
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-            } else if (me->puissance < atoi(contenuMsg[2])) {               //CAS OU JE SUIS LE PLUS FAIBLE
+            } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
+                printf("Je suis le plus faible\n");
                 if (me->etat != CAPTURE) {                                        //CAS OU JE NE SUIS PAS CAPTURE
+                    printf("Je nai pas de pere\n");
+                    char res[3];
+                    sprintf(res, "%d", GAGNANT);
+                    char resultat[10] = "RE:";
+                    strcat(resultat, res);
+                    sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                    me->pere = &contact;
+                    me->puissance_pere = atoi(contenuMsg[1]) + 1;
+                } else {                                                          //CAS OU JE SUIS CAPTURE
+                    printf("J ai un pere\n");
+                    attacker = &contact;
+                    attacker_puissance = atoi(contenuMsg[1]);
+                    char *puissance_adversaire = contenuMsg[1];
+                    char demande[10] = "DM:";
+                    strcat(demande, puissance_adversaire);
+                    char *id = contenuMsg[2];
+                    strcat(demande, puissance_adversaire);
+                    strcat(demande, id);
+                    sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
+                }
+            } else if (me->id >
+                       atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+                printf("J ai la meme puissance, mais mon Id est plus grand\n");
+                char res[3];
+                sprintf(res, "%d", PERDANT);
+                char resultat[10] = "RE:";
+                strcat(resultat, res);
+                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+            } else {                                                            //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
+                printf("J ai la meme puissance, mais mon Id est plus petit\n");
+                if (me->etat != CAPTURE) {
+                    printf("Je nai pas de pere\n");
                     char res[3];
                     sprintf(res, "%d", GAGNANT);
                     char resultat[10] = "RE:";
@@ -432,55 +474,43 @@ int main(int argc, const char *argv[]) {
                     sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                     me->pere = &contact;
                     me->puissance_pere = atoi(contenuMsg[2]) + 1;
-                } else {                                                          //CAS OU JE SUIS CAPTURE
+                } else {
+                    printf("J ai un pere\n");
                     attacker = &contact;
-                    attacker_puissance = atoi(contenuMsg[2]);
-                    char *puissance_adversaire = contenuMsg[2];
+                    attacker_puissance = atoi(contenuMsg[1]);
+                    char *puissance_adversaire = contenuMsg[1];
                     char demande[10] = "DM:";
                     strcat(demande, puissance_adversaire);
-                    char *id = contenuMsg[3];
+                    char *id = contenuMsg[2];
                     strcat(demande, puissance_adversaire);
                     strcat(demande, id);
                     sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
                 }
-            } else if (me->id > atoi(contenuMsg[3])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-            } else {                                                             //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
-                char res[3];
-                sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-                me->pere = &contact;
-                me->puissance_pere = atoi(contenuMsg[2]) + 1;
             }
         }
 
 
-        if (strcmp(contenuMsg[1], "DM") == 0) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
+        if (strcmp(contenuMsg[0], "DM") == 0) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
             printf("Reception d'une demande de puissance\n");
-            if (me->puissance > atoi(contenuMsg[2])) {                      //CAS OU JE SUIS LE PLUS FORT
+            if (me->puissance > atoi(contenuMsg[1])) {                      //CAS OU JE SUIS LE PLUS FORT
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RT:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-            } else if (me->puissance < atoi(contenuMsg[2])) {               //CAS OU JE SUIS LE PLUS FAIBLE
+            } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 char res[3];
                 sprintf(res, "%d", GAGNANT);
                 char resultat[10] = "RE:";
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->pere = &contact;
-                me->puissance_pere = atoi(contenuMsg[2]) + 1;
+                me->puissance_pere = atoi(contenuMsg[1]) + 1;
 
             }
                 //estampille dans le cas de puissances egales
-            else if (me->id > atoi(contenuMsg[3])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+            else if (me->id >
+                     atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
                 char res[3];
                 sprintf(res, "%d", PERDANT);
                 char resultat[10] = "RE:";
@@ -493,13 +523,14 @@ int main(int argc, const char *argv[]) {
                 strcat(resultat, res);
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
                 me->pere = &contact;
-                me->puissance_pere = atoi(contenuMsg[2]) + 1;
+                me->puissance_pere = atoi(contenuMsg[1]) + 1;
             }
 
         }
-        if (strcmp(contenuMsg[1], "RT") == 0) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
+        if (strcmp(contenuMsg[0], "RT") ==
+            0) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
             printf("Reception d'un retour de demande de puissance\n");
-            if (atoi(contenuMsg[2]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
+            if (atoi(contenuMsg[1]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
                 me->pere = attacker;
                 me->puissance_pere = attacker_puissance;
                 char res[3];
@@ -517,16 +548,19 @@ int main(int argc, const char *argv[]) {
 
         }
 
-        if (strcmp(contenuMsg[1], "RE") == 0) {                                   //MESSAGE RESULTAT RECU
+        if (strcmp(contenuMsg[0], "RE") == 0) {                                   //MESSAGE RESULTAT RECU
             resRecu = true;
             printf("Reception d'un resultat\n");
-            if (atoi(contenuMsg[2]) == GAGNANT) {                           //CAS OU LE SITE A GAGNE
+            if (atoi(contenuMsg[1]) == GAGNANT) {                           //CAS OU LE SITE A GAGNE
+                printf("Resultat : GAGNANT\n");
                 me->puissance = me->puissance + 1;
                 char ipCaptured[15];
                 strcpy(ipCaptured, inet_ntoa(contact.sin_addr));;
                 int portCaptured = ntohs(contact.sin_port);
-                removeAddrServer(addrServer,ipCaptured,portCaptured, &nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
+                removeAddrServer(addrServer, ipCaptured, portCaptured,
+                                 &nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
             } else {                                                              //CAS OU LE SITE A PERDU
+                printf("Resultat : PERDANT\n");
                 me->etat = PASSIF;
             }
 
@@ -541,12 +575,16 @@ int main(int argc, const char *argv[]) {
                 sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
             }
         }
-        if (strcmp(contenuMsg[1], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
+        if (strcmp(contenuMsg[0], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
             printf("Reception d'un message de victoire\n");
             victoire = true;
             printf("Victoire du site %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
         }
 
+    }
+
+    if (me->puissance > (nbSites / 2)) {
+        printf("Victoire du site %s:%d\n", myIP, myPort);
     }
     printf("La partie est terminée\n");
 
