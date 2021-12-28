@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[]) {
     if (argc!=2){
@@ -15,7 +16,8 @@ int main(int argc, char *argv[]) {
     int nbProcess = atoi(argv[1]);
 
     for(int i = 0; i<nbProcess; i++) {
-        exit_status = system("glxgears");
+        usleep(100000);
+        exit_status = system("cmd.exe /c start cmd.exe /c wsl.exe ./site 127.0.0.1 55555 &");
         if(exit_status==-1) {
             perror("Failed opening terminal\n");
             exit(1);

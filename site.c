@@ -15,16 +15,23 @@
 
 //Sabri the sublime
 
-#define GAGNANT 1
-#define PERDANT 0
+#define GAGNANT 401
+#define PERDANT 402
 #define PASSIF 200
 #define PARTICIPANT 201
 #define CAPTURE 202
+
+#define AT 300
+#define RE 301
+#define DM 302
+#define RT 303
+#define VI 304
 
 
 #define true 1
 #define false 0
 
+struct sockaddr_in null_sockaddr_in;
 
 struct siteState {
     struct sockaddr_in *pere;
@@ -36,6 +43,52 @@ struct siteState {
     unsigned int port;
     struct sockaddr_in *liste_IP;
 };
+
+struct message {
+    int type_message; // AT : Attaque / RE : Résultat / DM : Demande Puissance Pere / RT : Retour Puissance Pere / VI : Victoire
+    int puissance; // Puissance du site
+    int id; // ID du site utile pour casser la symétrie en cas de puissance égale
+    int type_resultat; // GAGNANT ou PERDANT (ou NULL)
+    struct sockaddr_in attaquant; // Adresse de l'attaquant pour Retour de puissance
+};
+
+struct message* creer_message(int type_message, int puissance, int id, int type_resultat, struct sockaddr_in attaquant) {
+    //Wait for 100ms-200ms
+    usleep(rand() % 100001 + 100000);
+
+    struct message *msg = malloc(sizeof (struct message));
+    msg->type_message = type_message;
+    msg->puissance = puissance;
+    msg->id = id;
+    msg->type_resultat = type_resultat;
+    msg->attaquant = attaquant;
+    return msg;
+}
+
+void afficher_message(struct message *msg) {
+    if(msg->type_message == AT) {
+        printf("|ATTAQUE\n");
+    } else if(msg->type_message == RE) {
+        printf("|RESULTAT\n");
+    } else if(msg->type_message == DM) {
+        printf("|DEMANDE PUISSANCE PERE\n");
+    } else if(msg->type_message == RT) {
+        printf("|RETOUR PUISSANCE PERE\n");
+    } else if(msg->type_message == VI) {
+        printf("|VICTOIRE\n");
+    }
+    printf("|Puissance : %d\n", msg->puissance);
+    printf("|ID : %d\n", msg->id);
+    if(msg->type_resultat == GAGNANT) {
+        printf("|Résultat : GAGNANT\n");
+    } else if(msg->type_resultat == PERDANT) {
+        printf("|Résultat : PERDANT\n");
+    }
+    //Check if msg->attaquant is not equal to sockaddr_in null
+    if(msg->attaquant.sin_addr.s_addr != null_sockaddr_in.sin_addr.s_addr) {
+        printf("|Attaquant : %s:%d\n", inet_ntoa(msg->attaquant.sin_addr), ntohs(msg->attaquant.sin_port));
+    }
+}
 
 struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in *liste_IP, int nbAdversaire) {
     struct siteState *site;
@@ -53,20 +106,6 @@ struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in 
 
     return site;
 }
-
-/*char* concatMessageEnvoye(char* typeMessage, int puissance, int id){
-    char message[20];
-    char idString[3];
-    char puissanceString[3];
-    sprintf(puissanceString, "%d", puissance);
-    sprintf(idString, "%d", id);
-    strcat(message, typeMessage);
-    strcat(message, ":");
-    strcat(message, puissanceString);
-    strcat(message, ":");
-    strcat(message, idString);
-    return &message;
-}*/
 
 char **split(char s[], char *delimiteur, int n) {
 
@@ -93,9 +132,6 @@ struct sockaddr_in *initAddrServer(char *str, int n) {
     while (i < n) {
         //on parcourt les lignes et on split sur le delimiterIp pour avooir l'ip et le port de l'adversaire représenté dans la ligne parcourue
         ipPort = split(lines[i], delimiterIp, 2);
-        //printf(" %s  ", lines[i]);
-        //printf(" %s  ", ipPort[0]);
-        //printf(" %s  \n", ipPort[1]);
         addrServer[i].sin_family = AF_INET;
         addrServer[i].sin_addr.s_addr = inet_addr(ipPort[0]);
         addrServer[i].sin_port = htons(atoi(ipPort[1]));
@@ -112,6 +148,7 @@ void removeAddrServer(struct sockaddr_in *addrServerOpponent, char *ip, unsigned
             (ntohs(addrServerOpponent[i].sin_port) != port)) && (i < *y)) {
         i++;
     }
+
     if (i < *y) {
         for (int j = i; j < *y - 1; j++) {
             addrServerOpponent[j] = addrServerOpponent[j + 1];
@@ -121,15 +158,12 @@ void removeAddrServer(struct sockaddr_in *addrServerOpponent, char *ip, unsigned
 }
 
 int sendTCP(int socket, const char *buffer, size_t length) {
-
     ssize_t sent;
 
     while (length > 0) {
         sent = send(socket, buffer, length, 0);
 
-        if (sent <= 0) {
-            return sent;
-        }
+        if (sent <= 0) return sent;
 
         buffer += sent;
         length -= sent;
@@ -143,9 +177,7 @@ int recvTCP(int socket, char *buffer, size_t length) {
     while (length > 0) {
         received = recv(socket, buffer, length, 0);
 
-        if (received <= 0) {
-            return received;
-        }
+        if (received <= 0) return received;
 
         buffer += received;
         length -= received;
@@ -153,80 +185,23 @@ int recvTCP(int socket, char *buffer, size_t length) {
     return 1;
 }
 
-//Return a list of opened socket to all the opponents
-int *connectToOpponent(struct sockaddr_in *addrServer, int position, int numberOpponents) {
-    printf("Connecting to opponents...\n");
-    int dsOpponents[numberOpponents - 1];
-    int beginningPos = position;
-    int lgAdr = sizeof(struct sockaddr_in);
-    if (position != 0) {
-        int ds = socket(PF_INET, SOCK_STREAM, 0);
-        if (ds < 0) {
-            perror("Client : erreur creation socket");
-        }
-
-        if (bind(ds, (struct sockaddr *) &addrServer[position], sizeof(struct sockaddr)) < 0) {
-            perror("Serveur : erreur bind");
-            close(ds);
-            exit(1);
-        }
-
-        int ecoute = listen(ds, numberOpponents - position - 1);
-        if (ecoute < 0) {
-            perror("Serveur : erreur ecoute");
-            close(ds);
-            exit(1);
-        }
-
-        while (position != 0) {
-            printf("Serveur : j'attends la demande d'un client (accept) \n");
-
-            struct sockaddr_in adc;
-            socklen_t lgc = sizeof(struct sockaddr_in);
-
-            int dsc = accept(ds, (struct sockaddr *) &adc, &lgc);
-            if (dsc < 0) {
-                perror("Serveur : erreur accept");
-                exit(1);
-            }
-
-            printf("Serveur : le client %s:%d est connecté\n", inet_ntoa(adc.sin_addr), ntohs(adc.sin_port));
-            position--;
-        }
-    }
-
-    int dsOpponent;
-
-    for (int i = beginningPos + 1; i < numberOpponents; i++) {
-        printf("Je me connecte à mes opposants\n");
-        //Connexion au serveur central
-        dsOpponent = socket(PF_INET, SOCK_STREAM, 0);
-        if (dsOpponent < 0) {
-            perror("Client : erreur creation socket");
-        }
-        int conn = connect(dsOpponent, (struct sockaddr *) &addrServer[i], lgAdr);
-        if (conn < 0) {
-            perror("Client : erreur connect");
-            close(dsOpponent);
-            exit(1);
-        }
-        dsOpponents[i - 1] = dsOpponent;
-    }
-}
-
 int main(int argc, const char *argv[]) {
+    null_sockaddr_in.sin_addr.s_addr = inet_addr("255.255.255.255");
+    null_sockaddr_in.sin_family = AF_INET;
+    null_sockaddr_in.sin_port = htons((short) 65535);
 
-    //test if there are 2 arguments
+    // Test if there are 2 arguments
     if (argc != 3) {
-        printf("Utilisation: %s addresse_IP_du_serveur_central  numero_de_port_du_serveur_central\n",
-               argv[0]);
+        printf("Utilisation: %s addresse_IP_du_serveur_central  numero_de_port_du_serveur_central\n", argv[0]);
         exit(1);
     }
     srand(time(NULL));
+
     //Connexion au serveur central
     int ds = socket(PF_INET, SOCK_STREAM, 0);
     if (ds < 0) {
         perror("Client : erreur creation socket");
+        exit(1);
     }
 
     struct sockaddr_in adrServ;
@@ -292,7 +267,7 @@ int main(int argc, const char *argv[]) {
     inet_ntop(AF_INET, &selfAddr.sin_addr, myIP, sizeof(myIP));
     myPort = ntohs(selfAddr.sin_port);
 
-    //Find position of selfAddr in addrServer
+    //Find position of selfAddr in addrServer (own position)
     int selfPosition = -1;
     int i = 0;
     while (i < nbSites && selfPosition == -1) {
@@ -302,11 +277,13 @@ int main(int argc, const char *argv[]) {
         i++;
     }
 
+    //Fermeture du socket en TCP pour le transformer en UDP
     close(ds);
 
     ds = socket(PF_INET, SOCK_DGRAM, 0);
     if (ds < 0) {
         perror("Client : erreur creation socket UDP");
+        exit(1);
     }
 
     if (bind(ds, (struct sockaddr *) &selfAddr, sizeof(selfAddr)) < 0) {
@@ -329,9 +306,17 @@ int main(int argc, const char *argv[]) {
     int victoire = false;
     int resRecu = true; // au debut tout le monde peut attaquer on met resRecu a true dans ce cas là
 
-    struct sockaddr_in *attacker;
-    int attacker_puissance;
+    struct message* message = (struct message *) malloc(sizeof(struct message));
+    struct message* res = (struct message*) malloc(sizeof(struct message));
+
+    //Stockage de l'adresse du dernier site ayant envoyé un message
+    struct sockaddr_in contact;
+
     socklen_t lg = sizeof(struct sockaddr_in);
+
+    sleep(1);
+
+    int snd;
 
     int z = 0;
     while (me->puissance < (nbSites / 2) + 1 && !victoire) {
@@ -339,214 +324,253 @@ int main(int argc, const char *argv[]) {
         printf("Début du tour : %d\n", z);
         z++;
 
-//me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
+        //me est attaquant dans cette conditon ( le cas ou x envoie un message d'attaque)
         if (me->etat == PARTICIPANT && resRecu) {
             resRecu = false;
+            //Sélection d'une cible aléatoire
             int y = rand() % nbSiteAttack;
-            char puissance[3];
-            sprintf(puissance, "%d", me->puissance);
-            //printf("Puissance me : %i\n", me->puissance);
-            //printf("Puissance String: %s\n", puissance);
-            char attaque[20] = "AT:";
-            strcat(attaque, puissance);
-            char id[3];
-            sprintf(id, "%d", me->id);
-            strcat(attaque, ":");
-            strcat(attaque, id);
+            printf("Le numéro random sélectionné est : %d\n", y);
             struct sockaddr_in cible = addrServer[y];
-            //envoi du message d'attaque à la cible
-            printf("Envoi de l'attaque au site %s:%d\n", inet_ntoa(addrServer[y].sin_addr),
-                   ntohs(addrServer[y].sin_port));
-            calcul(1);
-            sendto(ds, attaque, 10, 0, (struct sockaddr *) &cible, sizeof(cible));
-            calcul(1);
+
+            //Création du message d'attaque
+            message = creer_message(AT, me->puissance, me->id, -1, null_sockaddr_in);
+
+            //Envoi du message d'attaque à la cible
+            printf("Envoi de l'attaque au site %s:%d\n", inet_ntoa(addrServer[y].sin_addr), ntohs(addrServer[y].sin_port));
+            //calcul(1);
+            snd = sendto(ds, (struct message*) message, sizeof(struct message), 0, (struct sockaddr *) &cible, sizeof(cible));
+            //calcul(1);
+            if (snd < 0) {
+                perror("Client : erreur sendto");
+                close(ds);
+                exit(1);
+            }
         }
 
-        struct sockaddr_in contact;
-        char message[10];
+        printf("MON ID EST LE SUIVANT: %i\n", me->id);
+
+        //On attends de recevoir un message d'un autre site
         printf("Attente d'un message...\n");
-        int receive = recvfrom(ds, message, 10, 0, (struct sockaddr *) &contact, &lg);
+        int receive = recvfrom(ds, res, sizeof(struct message), 0, (struct sockaddr *) &contact, &lg);
         if (receive < 0) {
             perror("Client : erreur recvfrom");
             close(ds);
             exit(1);
         }
-        printf("Message reçu : %s\n", message);
-        char *delimiter = ":";
-        char **contenuMsg = split(message, delimiter, 4);
+        printf("Message reçu de : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+        afficher_message(res);
 
-        if (strcmp(contenuMsg[0], "AT") == 0) {
-            printf("Reception d'une attaque\n");
-            if (me->puissance > atoi(contenuMsg[1])) {                      //CAS OU JE SUIS LE PLUS FORT
-                printf("Je suis le plus fort\n");
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-            } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
-                printf("Je suis le plus faible\n");
+        if (res->type_message==AT) {
+            if (me->puissance > res->puissance) {                      //CAS OU JE SUIS LE PLUS FORT
+                message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
+                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                //calcul(1);
+                printf("CAS OU JE SUIS LE PLUS FORT\n");
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
+            } else if (me->puissance < res->puissance) {               //CAS OU JE SUIS LE PLUS FAIBLE
                 if (me->etat != CAPTURE) {                                        //CAS OU JE NE SUIS PAS CAPTURE
-                    printf("Je n ai pas de pere\n");
-                    char res[3];
-                    sprintf(res, "%d", GAGNANT);
-                    char resultat[10] = "RE:";
-                    strcat(resultat, res);
-                    printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                           ntohs(contact.sin_port));
-                    calcul(1);
-                    sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                    printf("CAS OU JE SUIS LE PLUS FAIBLE ET PAS CAPTURE\n");
+                    message = creer_message(RE, me->puissance, me->id, GAGNANT, null_sockaddr_in);
+                    printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                    //calcul(1);
                     me->etat = CAPTURE;
                     me->pere = &contact;
-                    me->puissance_pere = atoi(contenuMsg[1]) + 1;
+                    snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                    if (snd < 0) {
+                        perror("Client : erreur sendto");
+                        close(ds);
+                        exit(1);
+                    }
+                    printf("Affichage du père : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
+                    me->puissance_pere = (res->puissance) + 1;
                 } else {                                                          //CAS OU JE SUIS CAPTURE
-                    printf("J ai un pere\n");
-                    attacker = &contact;
-                    attacker_puissance = atoi(contenuMsg[1]);
-                    char *puissance_adversaire = contenuMsg[1];
-                    char demande[10] = "DM:";
-                    strcat(demande, puissance_adversaire);
-                    char *id = contenuMsg[2];
-                    strcat(demande, ":");
-                    strcat(demande, id);
-                    printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
-                           ntohs(me->pere->sin_port));
-                    calcul(1);
-                    sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
+                    //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
+                    printf("CAS OU JE SUIS LE PLUS FAIBLE ET CAPTURE \n");
+                    if (me->puissance_pere < res->puissance){
+                        printf("ID PERE < \n");
+                        message = creer_message(DM, res->puissance, res->id, -1, contact);
+                        printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
+
+                        //calcul(1);
+                        snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) me->pere, lg);
+                        if (snd < 0) {
+                            perror("Client : erreur sendto");
+                            close(ds);
+                            exit(1);
+                        }
+                    }
+                    else{
+                        printf("ID PERE > \n");
+                        message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
+                        printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                        //calcul(1);
+                        snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                        if (snd < 0) {
+                            perror("Client : erreur sendto");
+                            close(ds);
+                            exit(1);
+                        }
+                    }
+                    
+                    
+                    
                 }
-            } else if (me->id >
-                       atoi(contenuMsg[2])) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
-                printf("J ai la meme puissance, mais mon Id est plus grand\n");
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+            } else if (me->id > res->id) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+                printf("CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND\n");
+                message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
+                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
             } else {                                                            //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
-                printf("J ai la meme puissance, mais mon Id est plus petit\n");
                 if (me->etat != CAPTURE) {
-                    printf("Je n ai pas de pere\n");
-                    char res[3];
-                    sprintf(res, "%d", GAGNANT);
-                    char resultat[10] = "RE:";
-                    strcat(resultat, res);
-                    printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                           ntohs(contact.sin_port));
-                    calcul(1);
-                    sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                    printf("CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT ET PAS CAPTURE\n");
+                    printf("ME->ID :%i\n", me->id);
+                    message = creer_message(RE, me->puissance, me->id, GAGNANT, null_sockaddr_in);
+                    printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                    //calcul(1);
                     me->etat = CAPTURE;
                     me->pere = &contact;
-                    me->puissance_pere = atoi(contenuMsg[2]) + 1;
-                } else {
-                    printf("J ai un pere\n");
-                    attacker = &contact;
-                    attacker_puissance = atoi(contenuMsg[1]);
-                    char *puissance_adversaire = contenuMsg[1];
-                    char demande[10] = "DM:";
-                    char *id = contenuMsg[2];
-                    strcat(demande, puissance_adversaire);
-                    strcat(demande, ":");
-                    strcat(demande, id);
-                    printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
-                           ntohs(me->pere->sin_port));
-                    calcul(1);
-                    sendto(ds, demande, 10, 0, (struct sockaddr *) me->pere, lg);
+                    snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                    if (snd < 0) {
+                        perror("Client : erreur sendto");
+                        close(ds);
+                        exit(1);
+                    }
+                    printf("Affichage du père : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
+                    me->puissance_pere = (res->puissance) + 1;
+                } 
+                else {
+                    //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
+                    printf("CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT ET CAPTURE\n");
+                    if (me->puissance_pere < res->puissance){
+                        message = creer_message(DM, res->puissance, res->id, -1, contact);
+                        printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
+
+                        //calcul(1);
+                        snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) me->pere, lg);
+                        if (snd < 0) {
+                            perror("Client : erreur sendto");
+                            close(ds);
+                            exit(1);
+                        }
+                    }
+                    else{
+                        message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
+                        printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+                        //calcul(1);
+                        snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                        if (snd < 0) {
+                            perror("Client : erreur sendto");
+                            close(ds);
+                            exit(1);
+                        }
+                    }
                 }
             }
         }
 
 
-        if (strcmp(contenuMsg[0], "DM") == 0) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
-            printf("Reception d'une demande de puissance\n");
-            if (me->puissance > atoi(contenuMsg[1])) {                      //CAS OU JE SUIS LE PLUS FORT
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RT:";
-                strcat(resultat, res);
-                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
-            } else if (me->puissance < atoi(contenuMsg[1])) {               //CAS OU JE SUIS LE PLUS FAIBLE
-                char res[3];
-                sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RT:";
-                strcat(resultat, res);
-                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+        if (res->type_message==DM) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
+            if (me->puissance > res->puissance) {                      //CAS OU JE SUIS LE PLUS FORT
+                message = creer_message(RT, -1, me->id, PERDANT, res->attaquant);
+                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
+            } else if (me->puissance < res->puissance) {               //CAS OU JE SUIS LE PLUS FAIBLE
+                message = creer_message(RT, res->puissance, me->id, GAGNANT, res->attaquant);
+                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
                 me->etat = PASSIF;
 
             }
-                //estampille dans le cas de puissances egales
-            else if (me->id >
-                     atoi(contenuMsg[2])) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RT:";
-                strcat(resultat, res);
-                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+            //estampille dans le cas de puissances egales
+            else if (me->id > res->id) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+                message = creer_message(RT, -1, me->id, PERDANT, res->attaquant);
+                printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
             } else {                                                              //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
-                char res[3];
-                sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RT:";
-                strcat(resultat, res);
-                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &contact, lg);
+                message = creer_message(RT, res->puissance, me->id, GAGNANT, res->attaquant);
+                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &contact, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
                 me->etat = PASSIF;
             }
 
         }
-        if (strcmp(contenuMsg[0], "RT") ==
-            0) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
-            printf("Reception d'un retour de demande de puissance\n");
-            if (atoi(contenuMsg[1]) == GAGNANT) {                          //CAS OU LE PERE A PERDU
-                me->pere = attacker;
-                me->puissance_pere = attacker_puissance + 1;
-                char res[3];
-                sprintf(res, "%d", GAGNANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
-                       ntohs(me->pere->sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &attacker, lg);
-            } else {                                                             //CAS OU LE PERE A GAGNE
-                char res[3];
-                sprintf(res, "%d", PERDANT);
-                char resultat[10] = "RE:";
-                strcat(resultat, res);
-                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),
-                       ntohs(contact.sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &attacker, lg);
-            }
 
+        if (res->type_message==RT) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
+
+            if (res->type_resultat == GAGNANT) {                          //CAS OU LE PERE A PERDU
+                me->pere = &res->attaquant;
+                me->puissance_pere = (res->puissance) + 1;
+                message = creer_message(RE, res->puissance, me->id, GAGNANT, null_sockaddr_in);
+                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(res->attaquant.sin_addr), ntohs(res->attaquant.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &res->attaquant, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
+            } else {                                                             //CAS OU LE PERE A GAGNE
+                message = creer_message(RE, res->puissance, me->id, PERDANT, null_sockaddr_in);
+                printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(res->attaquant.sin_addr), ntohs(res->attaquant.sin_port));
+
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &res->attaquant, lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
+            }
         }
 
-        if (strcmp(contenuMsg[0], "RE") == 0) {                                   //MESSAGE RESULTAT RECU
+        if (res->type_message == RE) {                                   //MESSAGE RESULTAT RECU
             resRecu = true;
-            printf("Reception d'un resultat\n");
-            if (atoi(contenuMsg[1]) == GAGNANT) {                           //CAS OU LE SITE A GAGNE
-                printf("Resultat : GAGNANT\n");
+            if (res->type_resultat == GAGNANT) {                           //CAS OU LE SITE A GAGNE
                 me->puissance = me->puissance + 1;
                 char ipCaptured[15];
                 strcpy(ipCaptured, inet_ntoa(contact.sin_addr));;
                 int portCaptured = ntohs(contact.sin_port);
-                removeAddrServer(addrServer, ipCaptured, portCaptured,
-                                 &nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
+                removeAddrServer(addrServer, ipCaptured, portCaptured, &nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
             } else {                                                              //CAS OU LE SITE A PERDU
                 printf("Resultat : PERDANT\n");
                 me->etat = PASSIF;
@@ -554,26 +578,26 @@ int main(int argc, const char *argv[]) {
 
         }
 
-        printf("Puissance : %d\n", me->puissance);
         if (me->puissance > (nbSites / 2)) {                                       //CAS OU J'AI GAGNE
             printf("Nombre de sites : %d\n", nbSites);
             printf("Nombre de sites à attaquer: %d\n", nbSiteAttack);
-            char res[3];
-            sprintf(res, "%d", GAGNANT);
-            char resultat[10] = "VI:";
-            strcat(resultat, res);
+            message = creer_message(VI, -1, -1, GAGNANT, null_sockaddr_in);
 
             for (int j = 0; j < nbSites-1; ++j) {
                 printf("Envoi du message au site : %d\n", j);
-                printf("Envoi au site : %s:%d\n", inet_ntoa(me->liste_IP[j].sin_addr),
-                       ntohs((me->liste_IP)[j].sin_port));
-                calcul(1);
-                sendto(ds, resultat, 10, 0, (struct sockaddr *) &me->liste_IP[j], lg);
+                printf("Envoi au site : %s:%d\n", inet_ntoa(me->liste_IP[j].sin_addr), ntohs((me->liste_IP)[j].sin_port));
+                //calcul(1);
+                snd = sendto(ds, (struct message*)message, sizeof(struct message), 0, (struct sockaddr *) &me->liste_IP[j], lg);
+                if (snd < 0) {
+                    perror("Client : erreur sendto");
+                    close(ds);
+                    exit(1);
+                }
             }
             printf("Tout les messages de victoires envoyés \n");
 
         }
-        if (strcmp(contenuMsg[0], "VI") == 0) {                                   //MESSAGE VICTOIRE RECU
+        if (res->type_message == VI) {                                   //MESSAGE VICTOIRE RECU
             printf("Reception d'un message de victoire\n");
             victoire = true;
             printf("Victoire du site %s:%d\n", inet_ntoa(contact.sin_addr), ntohs(contact.sin_port));
@@ -586,6 +610,11 @@ int main(int argc, const char *argv[]) {
     }
     printf("La partie est terminée\n");
 
+
+    char test[20];
+    printf("Fin du programme, appuyez sur une touché puis entrée : ");
+    scanf("%s", test);
+    calcul(1);
     close(ds);
 
     return 0;
