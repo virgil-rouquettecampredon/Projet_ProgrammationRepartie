@@ -233,9 +233,10 @@ int main(int argc, const char *argv[]) {
                     printf("Affichage du père : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
                     me->puissance_pere = (res->puissance) + 1;
 
-                } else {                                                          //CAS OU JE SUIS CAPTURE
-
-                    if (me->puissance_pere < res->puissance) {
+                }
+                else {                                                          //CAS OU JE SUIS CAPTURE
+                    //Si le père à une puissance inférieure à la puissance de l'attaquant lorsque le site s'est fait capturer
+                    if (me->puissance_pere <= res->puissance) {
                         //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
                         printf("ID PERE < \n");
                         message = creer_message(DM, res->puissance, res->id, -1, contact);
@@ -251,6 +252,7 @@ int main(int argc, const char *argv[]) {
                         }
 
                     } else {
+                        //Si le père à une puissance supérieure à la puissance de l'attaquant lorsque le site s'est fait capturer
                         message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
                         printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
 
@@ -298,7 +300,7 @@ int main(int argc, const char *argv[]) {
 
                 } else {
                     //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
-                    if (me->puissance_pere < res->puissance) {
+                    if (me->puissance_pere <= res->puissance) {
                         message = creer_message(DM, res->puissance, res->id, -1, contact);
                         printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),ntohs(me->pere->sin_port));
 
@@ -354,8 +356,10 @@ int main(int argc, const char *argv[]) {
                     exit(1);
                 }
 
-                me->etat = PASSIF;
-
+                //Je deviens passif si je ne suis pas capturé
+                if(me->etat != CAPTURE){
+                    me->etat = PASSIF;
+                }
             }
             //estampille dans le cas de puissances egales
             else if (me->id >res->id) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
@@ -382,7 +386,10 @@ int main(int argc, const char *argv[]) {
                     exit(1);
                 }
 
-                me->etat = PASSIF;
+                //Je deviens passif si je ne suis pas capturé
+                if(me->etat != CAPTURE){
+                    me->etat = PASSIF;
+                }
             }
 
         }
@@ -425,8 +432,10 @@ int main(int argc, const char *argv[]) {
                 int portCaptured = ntohs(contact.sin_port);
                 removeAddrServer(addrServer, ipCaptured, portCaptured,&nbSiteAttack); // Supprimer le site capturé de la liste des site à attaquer
             } else {                                                              //CAS OU LE SITE A PERDU
+                if(me->etat != CAPTURE){
+                    me->etat = PASSIF;
+                }
                 printf("Resultat : PERDANT\n");
-                me->etat = PASSIF;
             }
         }
 
@@ -464,10 +473,7 @@ int main(int argc, const char *argv[]) {
     printf("La partie est terminée\n");
 
 
-    char test[20];
-    printf("Fin du programme, appuyez sur une touché puis entrée : ");
-    scanf("%s", test);
-    calcul(1);
+
     close(ds);
     free(message);
     free(me);
