@@ -223,7 +223,7 @@ int main(int argc, const char *argv[]) {
 
                     //Je me fais capturer
                     me->etat = CAPTURE;
-                    me->pere = &contact;
+                    memcpy(me->pere, &contact, sizeof(struct sockaddr_in));
 
                     //Envoi du message de résultat GAGNANT au site qui a envoyé l'attaque
                     snd = sendto(ds, (struct message *) message, sizeof(struct message), 0,(struct sockaddr *) &contact, lg);
@@ -294,7 +294,7 @@ int main(int argc, const char *argv[]) {
 
                     //Je me fais capturer
                     me->etat = CAPTURE;
-                    me->pere = &contact;
+                    memcpy(me->pere, &contact, sizeof(struct sockaddr_in));
 
                     //Envoi du message de résultat GAGNANT au site qui a envoyé l'attaque
                     snd = sendto(ds, (struct message *) message, sizeof(struct message), 0,(struct sockaddr *) &contact, lg);
@@ -422,7 +422,7 @@ int main(int argc, const char *argv[]) {
 
         if (res->type_message == RT) {                                   //MESSAGE REPONSE DEMANDE DE PUISSANCE RECU
             if (res->type_resultat == GAGNANT) {                          //CAS OU LE PERE A PERDU
-                me->pere = &res->attaquant;
+                memcpy(me->pere, &res->attaquant, sizeof(struct sockaddr_in));
                 me->puissance_pere = (res->puissance) + 1;
                 message = creer_message(RE, res->puissance, me->id, GAGNANT, null_sockaddr_in);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(res->attaquant.sin_addr),ntohs(res->attaquant.sin_port));
@@ -501,8 +501,7 @@ int main(int argc, const char *argv[]) {
 
     /*char test[20];
     printf("Fin du programme, appuyez sur une touché puis entrée : ");
-    scanf("%s", test);
-    calcul(1);*/
+    scanf("%s", test);*/
 
     close(ds);
     free(message);

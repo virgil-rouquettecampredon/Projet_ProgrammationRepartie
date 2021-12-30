@@ -86,7 +86,8 @@ void afficher_message(struct message *msg) {
 struct siteState *initSiteState(char *ip, unsigned int port, struct sockaddr_in *liste_IP, int nbAdversaire) {
     struct siteState *site;
     site->id = -1;
-    site->pere = (void *) 0;
+    site->pere = malloc(sizeof(struct sockaddr_in*));
+    site->pere = memset(site->pere, 0, sizeof(struct sockaddr_in));
     site->puissance_pere = 0;
     site->puissance = 1;
     site->etat = PARTICIPANT;
