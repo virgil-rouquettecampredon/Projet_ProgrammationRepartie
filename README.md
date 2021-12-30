@@ -1,6 +1,10 @@
 # Projet Programmation Répartie HAI721I
 Bienvenu dans notre dépot Github de notre projet de programmation répartie en master 1 informatique.
 
+### Structure
+* **site.c** : Algorithme d'élection et d'exécution d'un site : `./site <ip> <port>`
+* **central.c** : Serveur central pour lier les sites entres eux : `./central <port> <nombre de sites>`
+* **init.c** : Facilite le lancement de plusieurs sites : `./init <nombre de sites>` (en local, uniquement sur le port 55555, réglé pour WSL, utilisable sur Ubuntu via la commande : `gnome-terminal -- bash -c "./site 127.0.0.1 55555"` à adapter selon votre terminal ligne 20 dans `system()`).
 
 -----------------
 
