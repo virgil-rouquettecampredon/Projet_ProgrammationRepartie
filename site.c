@@ -203,6 +203,7 @@ int main(int argc, const char *argv[]) {
             if (me->puissance > res->puissance) {                      //CAS OU JE SUIS LE PLUS FORT
                 message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
+                //TODO
                 printf("CAS OU JE SUIS LE PLUS FORT\n");
 
                 //Envoi du message de résultat PERDANT au site qui a envoyé l'attaque
@@ -214,6 +215,8 @@ int main(int argc, const char *argv[]) {
                 }
 
             } else if (me->puissance < res->puissance) {               //CAS OU JE SUIS LE PLUS FAIBLE
+                //TODO
+                printf("CAS OU JE SUIS LE PLUS FAIBLE\n");
                 if (me->etat != CAPTURE) {                             //CAS OU JE NE SUIS PAS CAPTURE
                     message = creer_message(RE, me->puissance, me->id, GAGNANT, null_sockaddr_in);
                     printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
@@ -232,16 +235,17 @@ int main(int argc, const char *argv[]) {
 
                     printf("Affichage du père : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
                     me->puissance_pere = (res->puissance) + 1;
-
+                    //TODO
+                    printf("JE ME FAIS CAPTURER\n");
                 }
                 else {                                                          //CAS OU JE SUIS CAPTURE
                     //Si le père à une puissance inférieure à la puissance de l'attaquant lorsque le site s'est fait capturer
                     if (me->puissance_pere <= res->puissance) {
+                        //TODO
+                        printf("LA PUISSANCE DU PERE EST PLUS FAIBLE JE LUI DEMANDE\n");
                         //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
-                        printf("ID PERE < \n");
                         message = creer_message(DM, res->puissance, res->id, -1, contact);
-                        printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),
-                               ntohs(me->pere->sin_port));
+                        printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),ntohs(me->pere->sin_port));
 
                         //Envoie d'une demande de puissance au père qui fera sa comparaison avec la puissance de l'attaquant
                         snd = sendto(ds, (struct message *) message, sizeof(struct message), 0,(struct sockaddr *) me->pere, lg);
@@ -252,6 +256,8 @@ int main(int argc, const char *argv[]) {
                         }
 
                     } else {
+                        //TODO
+                        printf("LA PUISSANCE DU PERE EST PLUS FORTE\n");
                         //Si le père à une puissance supérieure à la puissance de l'attaquant lorsque le site s'est fait capturer
                         message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
                         printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
@@ -266,6 +272,8 @@ int main(int argc, const char *argv[]) {
                     }
                 }
             } else if (me->id > res->id) {                      //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+                //TODO
+                printf("ID >\n");
                 message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
 
@@ -278,6 +286,8 @@ int main(int argc, const char *argv[]) {
                 }
 
             } else {                                                            //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
+                //TODO
+                printf("ID <\n");
                 if (me->etat != CAPTURE) {
                     message = creer_message(RE, me->puissance, me->id, GAGNANT, null_sockaddr_in);
                     printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
@@ -297,10 +307,16 @@ int main(int argc, const char *argv[]) {
 
                     printf("Affichage du père : %s:%d\n", inet_ntoa(me->pere->sin_addr), ntohs(me->pere->sin_port));
                     me->puissance_pere = (res->puissance) + 1;
+                    //TODO
+                    printf("JE ME FAIS CAPTURER\n");
 
                 } else {
                     //J'envois une demande de puissance, avec la puissance de l'attaquant, son ID, et son adresse
+                    //TODO
+                    printf("JE REGARDE LA PUISSANCE DU PERE\n");
                     if (me->puissance_pere <= res->puissance) {
+                        //TODO
+                        printf("LA PUISSANCE DU PERE EST PLUS FAIBLE JE LUI DEMANDE\n");
                         message = creer_message(DM, res->puissance, res->id, -1, contact);
                         printf("Envoi du message de demande de père au site : %s:%d\n", inet_ntoa(me->pere->sin_addr),ntohs(me->pere->sin_port));
 
@@ -313,6 +329,8 @@ int main(int argc, const char *argv[]) {
                         }
 
                     } else {
+                        //TODO
+                        printf("LA PUISSANCE DU PERE EST PLUS FORTE\n");
                         message = creer_message(RE, me->puissance, me->id, PERDANT, null_sockaddr_in);
                         printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
 
@@ -331,6 +349,8 @@ int main(int argc, const char *argv[]) {
         //Si le message est de type DM, alors on envoie un message de RT au fils
         if (res->type_message == DM) {                                   //MESSAGE DEMANDE DE PUISSANCE RECU
             if (me->puissance > res->puissance) {                      //CAS OU JE SUIS LE PLUS FORT
+                //TODO
+                printf("JE SUIS PLUS FORT\n");
                 message = creer_message(RT, -1, me->id, PERDANT, res->attaquant);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
@@ -344,6 +364,8 @@ int main(int argc, const char *argv[]) {
                 }
 
             } else if (me->puissance < res->puissance) {               //CAS OU JE SUIS LE PLUS FAIBLE
+                //TODO
+                printf("JE SUIS PLUS FAIBLE\n");
                 message = creer_message(RT, res->puissance, me->id, GAGNANT, res->attaquant);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),
                        ntohs(contact.sin_port));
@@ -363,6 +385,8 @@ int main(int argc, const char *argv[]) {
             }
             //estampille dans le cas de puissances egales
             else if (me->id >res->id) {                        //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS GRAND
+                //TODO
+                printf("ID >\n");
                 message = creer_message(RT, -1, me->id, PERDANT, res->attaquant);
                 printf("Envoi du message de retour puissance au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
 
@@ -375,6 +399,8 @@ int main(int argc, const char *argv[]) {
                 }
 
             } else {                                                              //CAS OU NOTRE PUISSANCE EST EGAL ET QUE J'AI UN ID PLUS PETIT
+                //TODO
+                printf("ID <\n");
                 message = creer_message(RT, res->puissance, me->id, GAGNANT, res->attaquant);
                 printf("Envoi du message de résultat au site : %s:%d\n", inet_ntoa(contact.sin_addr),ntohs(contact.sin_port));
 
@@ -473,6 +499,10 @@ int main(int argc, const char *argv[]) {
     printf("La partie est terminée\n");
 
 
+    /*char test[20];
+    printf("Fin du programme, appuyez sur une touché puis entrée : ");
+    scanf("%s", test);
+    calcul(1);*/
 
     close(ds);
     free(message);
