@@ -55,7 +55,7 @@ int main(int argc, const char *argv[]) {
 
     //Réception nbSites
     int nbSites;
-    int rcv = recvTCP(ds, &nbSites, sizeof(int));
+    int rcv = recvTCP(ds, (char*) &nbSites, sizeof(int));
     /* Traiter TOUTES les valeurs de retour (voir le cours ou la documentation). */
     if (rcv < 0) {
         perror("Client: probleme recv :");

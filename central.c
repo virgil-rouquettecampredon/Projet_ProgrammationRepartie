@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 
     //send to all clients in list_client the number of clients and list_client
     for (int i = 0; i < nombreDeSite; ++i) {
-        int snd = sendTCP(liste_client[i], &nombreDeSite, sizeof(int));
+        int snd = sendTCP(liste_client[i], (char *) &nombreDeSite, sizeof(int));
         if (snd < 0) {
             perror("Client : erreur lors du send:");
             fermerSocket(liste_client, nombreDeSite);

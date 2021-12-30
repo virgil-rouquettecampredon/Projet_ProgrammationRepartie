@@ -16,7 +16,6 @@ int main(int argc, char *argv[]) {
     int nbProcess = atoi(argv[1]);
 
     for(int i = 0; i<nbProcess; i++) {
-        usleep(100000);
         exit_status = system("cmd.exe /c start cmd.exe /c wsl.exe ./site 127.0.0.1 55555 &");
         if(exit_status==-1) {
             perror("Failed opening terminal\n");
