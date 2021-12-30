@@ -57,6 +57,12 @@ struct message * creer_message(int type_message, int puissance, int id, int type
     msg->attaquant = attaquant;
     return msg;
 }
+//Display all attributes of a siteState
+void afficherAttributes(struct siteState *site){
+    printf("siteState : \n + id : %d\n + puissance : %d\n + puissance_pere : %d\n + etat : %d\n + ipPere : %s\n + portPere : %d\n",
+           site->id, site->puissance, site->puissance_pere, site->etat, inet_ntoa(site->pere->sin_addr), ntohs(site->pere->sin_port));
+}
+
 
 void afficher_message(struct message *msg) {
     if (msg->type_message == AT) {
